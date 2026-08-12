@@ -1,0 +1,21 @@
+﻿[package]
+name = "dq-ingest"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+dq-core = { path = "../dq-core" }
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+regex.workspace = true
+once_cell.workspace = true
+image.workspace = true
+pdf-extract = "0.12"
+lopdf = "0.38"
+tempfile = "3"
+

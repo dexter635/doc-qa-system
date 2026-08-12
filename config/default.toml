@@ -1,0 +1,106 @@
+# doc-qa-system - varsayilan konfigurasyon
+# Ortam degiskenleri ile ezilebilir: DQ_SERVER_PORT, DQ_LLM_BASE_URL, DQ_JWT_SECRET ...
+
+[server]
+host = "127.0.0.1"
+port = 8080
+allowed_origins = ["http://127.0.0.1:8081", "http://localhost:8081"]
+max_body_bytes = 67108864      # 64 MB
+rate_limit_per_min = 60
+request_timeout_secs = 300
+
+[storage]
+db_path = "data/docqa.sqlite3"
+blob_dir = "data/blobs"
+model_dir = "models"
+index_dir = "data/index"
+
+[ingest]
+max_file_bytes = 52428800      # 50 MB
+max_pages = 500
+chunk_tokens = 380
+chunk_overlap_tokens = 64
+min_chunk_tokens = 40
+ocr_fallback_char_threshold = 120
+render_dpi = 200.0
+allowed_mime = ["application/pdf", "image/jpeg", "image/png"]
+
+[ocr]
+engine = "tesseract"           # "tesseract" | "none"
+tesseract_langs = "tur+eng"
+tesseract_bin = "tesseract"
+min_line_confidence = 0.35
+preprocess = true
+
+[embedding]
+model = "multilingual-e5-small"
+dim = 384
+query_prefix = "query: "
+passage_prefix = "passage: "
+batch_size = 16
+cache_dir = "models/embeddings"
+offline = false                # air-gapped kurulumda true yapin
+reranker_model = ""            # ornek: "bge-reranker-base"
+
+[retrieval]
+dense_top_k = 40
+sparse_top_k = 40
+rerank_candidates = 24
+final_top_k = 6
+rrf_k = 60.0
+min_score = 0.18
+neighbor_window = 1
+context_token_budget = 3000
+mmr_lambda = 0.72
+
+[cache]
+enabled = true
+memory_capacity = 512
+ttl_secs = 3600
+semantic_enabled = true
+semantic_threshold = 0.96
+embedding_cache_enabled = true
+
+[llm]
+base_url = "http://127.0.0.1:11434/v1"
+model = "qwen2.5:7b-instruct"
+api_key = ""
+temperature = 0.1
+top_p = 0.9
+max_tokens = 900
+timeout_secs = 120
+extractive_fallback = true
+probe_on_start = true
+
+[guardrails]
+max_query_chars = 1000
+block_prompt_injection = true
+injection_threshold = 0.5
+block_pii_in_query = false
+require_citations = true
+min_support_ratio = 0.5
+min_top_score = 0.22
+redact_pii_in_answer = true
+stamp_classification = true
+enforce_clearance = true
+denylist_patterns = []
+enforce_language_match = true
+
+[auth]
+enabled = true
+token_ttl_secs = 28800
+anonymous_clearance = "restricted"
+# jwt_secret DQ_JWT_SECRET ortam degiskeninden verilmelidir.
+jwt_secret = ""
+
+[[auth.users]]
+username = "analist"
+password = "degistir-beni"
+clearance = "secret"
+roles = ["user"]
+
+[[auth.users]]
+username = "admin"
+password = "degistir-beni"
+clearance = "top_secret"
+roles = ["admin", "user"]

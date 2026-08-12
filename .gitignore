@@ -1,0 +1,16 @@
+/target
+crates/dq-web/target
+crates/dq-web/dist
+.xwin-cache/
+
+# Calisma zamani verisi (belgeler, sqlite, indeks) - repoya girmemeli
+/data/
+/models/
+
+# Ortam/gizli degerler
+.env
+*.env
+
+# IDE
+.vscode/*
+!.vscode/extensions.json

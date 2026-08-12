@@ -1,0 +1,30 @@
+﻿[package]
+name = "dq-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+dq-core = { path = "../dq-core" }
+dq-ingest = { path = "../dq-ingest" }
+dq-index = { path = "../dq-index" }
+dq-llm = { path = "../dq-llm" }
+dq-guard = { path = "../dq-guard" }
+dq-rag = { path = "../dq-rag" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+axum = { version = "0.8", features = ["multipart"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "limit", "timeout"] }
+jsonwebtoken = "9"
+argon2 = { version = "0.5", features = ["password-hash"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+
