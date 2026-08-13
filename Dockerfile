@@ -14,8 +14,9 @@ RUN trunk build --release
 # --- Aşama 2: backend (dq-server) derlemesi -------------------------------
 FROM rust:1-slim-bookworm AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        pkg-config libssl-dev build-essential clang \
+        pkg-config libssl-dev build-essential clang libstdc++-12-dev \
     && rm -rf /var/lib/apt/lists/*
+ENV RUSTFLAGS="-l dylib=stdc++"
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY crates/dq-core ./crates/dq-core
