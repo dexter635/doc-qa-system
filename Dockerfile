@@ -16,8 +16,9 @@ FROM rust:1-slim-bookworm AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config libssl-dev build-essential clang libstdc++-12-dev \
     && rm -rf /var/lib/apt/lists/*
-ENV RUSTFLAGS="-l static=stdc++ -l dylib=m"
+ENV RUSTFLAGS="-l dylib=stdc++ -l dylib=m"
 ENV CXXFLAGS="-stdlib=libstdc++"
+ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY crates/dq-core ./crates/dq-core
