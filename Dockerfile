@@ -16,7 +16,7 @@ FROM rust:1-slim-bookworm AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config libssl-dev build-essential clang libstdc++-12-dev \
     && rm -rf /var/lib/apt/lists/*
-ENV RUSTFLAGS="-Wl,--no-as-needed -l dylib=stdc++ -l dylib=m -l dylib=c -L /usr/lib/x86_64-linux-gnu"
+ENV RUSTFLAGS="-C link-arg=-Wl,--no-as-needed -C link-arg=-L/usr/lib/x86_64-linux-gnu -C link-arg=-lstdc++ -C link-arg=-lm -C link-arg=-lc"
 ENV CXXFLAGS="-stdlib=libstdc++"
 ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu"
 WORKDIR /src
