@@ -9,16 +9,26 @@ pub fn init(default_filter: &str) {
         .or_else(|_| EnvFilter::try_new(default_filter))
         .unwrap_or_else(|_| EnvFilter::new("info"));
 
-    let json = std::env::var("DQ_LOG_FORMAT").map(|v| v == "json").unwrap_or(false);
+    let json = std::env::var("DQ_LOG_FORMAT")
+        .map(|v| v == "json")
+        .unwrap_or(false);
 
     let registry = tracing_subscriber::registry().with(filter);
     if json {
         registry
-            .with(tracing_subscriber::fmt::layer().json().with_current_span(true))
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .json()
+                    .with_current_span(true),
+            )
             .init();
     } else {
         registry
-            .with(tracing_subscriber::fmt::layer().with_target(false).compact())
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_target(false)
+                    .compact(),
+            )
             .init();
     }
 }

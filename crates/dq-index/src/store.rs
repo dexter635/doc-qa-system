@@ -222,13 +222,17 @@ impl Store {
         let rows = stmt
             .query_map(params![clearance as i64], row_to_document)
             .map_err(map_sqlite)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(map_sqlite)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(map_sqlite)
     }
 
     pub fn delete_document(&self, id: Uuid) -> Result<bool> {
         let conn = self.conn.lock();
         let n = conn
-            .execute("DELETE FROM documents WHERE id = ?1", params![id.to_string()])
+            .execute(
+                "DELETE FROM documents WHERE id = ?1",
+                params![id.to_string()],
+            )
             .map_err(map_sqlite)?;
         Ok(n > 0)
     }
@@ -237,9 +241,7 @@ impl Store {
 
     pub fn insert_chunks(&self, chunks: &[Chunk], vectors: &[Vec<f32>], model: &str) -> Result<()> {
         if chunks.len() != vectors.len() {
-            return Err(DqError::Storage(
-                "chunk ve vektor sayisi uyusmuyor".into(),
-            ));
+            return Err(DqError::Storage("chunk ve vektor sayisi uyusmuyor".into()));
         }
         let mut conn = self.conn.lock();
         let tx = conn.transaction().map_err(map_sqlite)?;
@@ -272,7 +274,12 @@ impl Store {
                     ])
                     .map_err(map_sqlite)?;
                 vec_stmt
-                    .execute(params![c.id.to_string(), v.len() as i64, model, encode_vec(v)])
+                    .execute(params![
+                        c.id.to_string(),
+                        v.len() as i64,
+                        model,
+                        encode_vec(v)
+                    ])
                     .map_err(map_sqlite)?;
             }
         }
@@ -314,7 +321,8 @@ impl Store {
                 Ok((chunk, decode_vec(&blob), filename))
             })
             .map_err(map_sqlite)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(map_sqlite)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(map_sqlite)
     }
 
     /// Bir belgenin belirli sirali chunk'ini getirir (komsu genisletme icin).
@@ -495,7 +503,8 @@ impl Store {
 
         let mut expected_prev = "GENESIS".to_string();
         for (i, r) in rows.enumerate() {
-            let (id, at, actor, action, subject, detail, prev_hash, hash) = r.map_err(map_sqlite)?;
+            let (id, at, actor, action, subject, detail, prev_hash, hash) =
+                r.map_err(map_sqlite)?;
             if prev_hash != expected_prev {
                 return Ok(Some(i));
             }
@@ -537,7 +546,8 @@ impl Store {
                 }))
             })
             .map_err(map_sqlite)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(map_sqlite)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(map_sqlite)
     }
 
     // ---------------- onbellek ----------------
@@ -545,9 +555,11 @@ impl Store {
     pub fn cache_get(&self, key: &str) -> Result<Option<String>> {
         let conn = self.conn.lock();
         let found: Option<String> = conn
-            .query_row("SELECT answer FROM qa_cache WHERE key = ?1", params![key], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT answer FROM qa_cache WHERE key = ?1",
+                params![key],
+                |r| r.get(0),
+            )
             .optional()
             .map_err(map_sqlite)?;
         if found.is_some() {
@@ -608,11 +620,16 @@ impl Store {
                 params![scope, clearance as i64, cutoff.to_rfc3339()],
                 |row| {
                     let blob: Vec<u8> = row.get(1)?;
-                    Ok((row.get::<_, String>(0)?, decode_vec(&blob), row.get::<_, String>(2)?))
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        decode_vec(&blob),
+                        row.get::<_, String>(2)?,
+                    ))
                 },
             )
             .map_err(map_sqlite)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(map_sqlite)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(map_sqlite)
     }
 
     /// Belge eklendiginde/silindiginde eski cevaplar gecersizlesir.
@@ -725,8 +742,17 @@ mod tests {
         store.insert_document(&secret).unwrap();
         store.insert_document(&sample_doc()).unwrap();
 
-        assert_eq!(store.list_documents(Classification::Restricted).unwrap().len(), 1);
-        assert_eq!(store.list_documents(Classification::Secret).unwrap().len(), 2);
+        assert_eq!(
+            store
+                .list_documents(Classification::Restricted)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            store.list_documents(Classification::Secret).unwrap().len(),
+            2
+        );
     }
 
     #[test]
@@ -738,8 +764,12 @@ mod tests {
     #[test]
     fn audit_chain_detects_tampering() {
         let store = Store::open_in_memory().unwrap();
-        store.append_audit("a", "login", None, "ok", serde_json::json!({})).unwrap();
-        store.append_audit("a", "query", Some("q1"), "ok", serde_json::json!({"n":1})).unwrap();
+        store
+            .append_audit("a", "login", None, "ok", serde_json::json!({}))
+            .unwrap();
+        store
+            .append_audit("a", "query", Some("q1"), "ok", serde_json::json!({"n":1}))
+            .unwrap();
         assert_eq!(store.verify_audit_chain().unwrap(), None);
 
         store

@@ -114,6 +114,98 @@ pub fn user_prompt(question: &str, context: &str, lang: Lang) -> String {
     format!("{context}\n\n<soru>\n{question}\n</soru>\n\n{instruction}")
 }
 
+/// Planlama asamasinda LLM'e gosterilen belge katalogu girdisi.
+pub struct CatalogDoc<'a> {
+    pub id: &'a str,
+    pub filename: &'a str,
+}
+
+const PLANNING_SYSTEM_TR: &str = r#"Sen bir belge arama sisteminin sorgu planlayicisisin.
+Gorevin: kullanicinin sorusunu, arama motorunun daha iyi sonuc verecegi bir
+veya birden fazla alt-sorguya ayirmak ve hangi belgelerin aranmasi gerektigini
+onermek. Sen cevabi UYDURMAZSIN, yalnizca arama stratejisi planlarsin.
+
+KESINLIKLE SADECE gecerli bir JSON nesnesi ile cevap ver, baska hicbir metin
+ekleme. Bicim:
+{"sub_queries": ["alt sorgu 1", "alt sorgu 2"], "doc_ids": ["id1"], "reasoning": "kisa gerekce"}
+
+Kurallar:
+- sub_queries: 1 ile belirtilen ust siniri arasinda, orijinal sorunun farkli
+  yonlerini kapsayan sorgular. Soru zaten tek ve basitse tek eleman yeterlidir.
+- doc_ids: yalnizca soruda ACIKCA belirtilen bir belge/dosya varsa o belgenin
+  katalogdaki id'sini kullan. Belirtilmemisse BOS DIZI dondur (tum belgelerde ara)."#;
+
+const PLANNING_SYSTEM_EN: &str = r#"You are the query planner of a document search system.
+Your job: split the user's question into one or more sub-queries that will
+retrieve better search results, and suggest which documents (if any) should
+be searched. You do NOT answer the question, you only plan the search.
+
+Respond with ONLY a valid JSON object, no other text. Format:
+{"sub_queries": ["sub query 1", "sub query 2"], "doc_ids": ["id1"], "reasoning": "short reasoning"}
+
+Rules:
+- sub_queries: between 1 and the given maximum, covering distinct aspects of
+  the question. A single simple question needs only one element.
+- doc_ids: only include a document id if the question EXPLICITLY names that
+  document/file; otherwise return an EMPTY array (search all documents)."#;
+
+pub fn planning_system_prompt(lang: Lang) -> &'static str {
+    match lang {
+        Lang::En => PLANNING_SYSTEM_EN,
+        _ => PLANNING_SYSTEM_TR,
+    }
+}
+
+/// Planlama kullanici istemi: soru + mevcut belge katalogu + alt-sorgu tavani.
+pub fn planning_user_prompt(
+    query: &str,
+    catalog: &[CatalogDoc<'_>],
+    max_sub_queries: usize,
+    lang: Lang,
+) -> String {
+    let catalog_list = if catalog.is_empty() {
+        match lang {
+            Lang::En => "(no documents uploaded yet)".to_string(),
+            _ => "(henuz belge yuklenmemis)".to_string(),
+        }
+    } else {
+        catalog
+            .iter()
+            .map(|d| format!("- id={} dosya={}", d.id, d.filename))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    match lang {
+        Lang::En => format!(
+            "Question: {query}\n\nAvailable documents:\n{catalog_list}\n\nMax sub_queries: {max_sub_queries}\nRespond with the JSON object only."
+        ),
+        _ => format!(
+            "Soru: {query}\n\nMevcut belgeler:\n{catalog_list}\n\nAzami alt-sorgu sayisi: {max_sub_queries}\nSadece JSON nesnesiyle cevap ver."
+        ),
+    }
+}
+
+/// Dusuk kaynak dogrulamasi sonrasi tek bir yeniden formule edilmis sorgu
+/// istemek icin kullanilir (agent'in "self-correction" adimi).
+pub fn reformulation_prompt(original_query: &str, lang: Lang) -> String {
+    match lang {
+        Lang::En => format!(
+            "The previous search for the question below did not return well-supported results.\n\
+Question: {original_query}\n\n\
+Rewrite it as ONE broader or differently-worded search query that might find\n\
+better matching passages in the documents. Respond with ONLY a JSON object:\n\
+{{\"query\": \"rewritten query\"}}"
+        ),
+        _ => format!(
+            "Asagidaki soru icin yapilan ilk arama, iyi desteklenen sonuclar vermedi.\n\
+Soru: {original_query}\n\n\
+Bunu, belgelerde daha iyi eslesen parcalar bulabilecek DAHA GENIS veya farkli\n\
+kelimelerle ifade edilmis TEK bir arama sorgusu olarak yeniden yaz. SADECE su\n\
+JSON nesnesiyle cevap ver: {{\"query\": \"yeniden yazilmis sorgu\"}}"
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

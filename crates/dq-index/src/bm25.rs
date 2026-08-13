@@ -65,7 +65,12 @@ impl Bm25Index {
         self.avg_len = 0.0;
     }
 
-    pub fn search(&self, query: &str, k: usize, allow: &dyn Fn(usize) -> bool) -> Vec<(usize, f32)> {
+    pub fn search(
+        &self,
+        query: &str,
+        k: usize,
+        allow: &dyn Fn(usize) -> bool,
+    ) -> Vec<(usize, f32)> {
         if self.doc_len.is_empty() || k == 0 {
             return Vec::new();
         }
@@ -152,7 +157,7 @@ pub fn best_snippet(text: &str, query: &str, max_chars: usize) -> String {
     let end = (best_start + window).min(chars.len());
     let mut out: String = chars[best_start..end].iter().collect();
     if best_start > 0 {
-        out.insert_str(0, "…");
+        out.insert(0, '…');
     }
     if end < chars.len() {
         out.push('…');
@@ -186,7 +191,11 @@ mod tests {
 
     #[test]
     fn snippet_centers_on_query() {
-        let text = format!("{} önemli bilgi: yağ değişimi 250 saat. {}", "a".repeat(300), "b".repeat(300));
+        let text = format!(
+            "{} önemli bilgi: yağ değişimi 250 saat. {}",
+            "a".repeat(300),
+            "b".repeat(300)
+        );
         let s = best_snippet(&text, "yağ değişimi", 120);
         assert!(s.contains("yağ değişimi"), "snippet: {s}");
     }

@@ -16,7 +16,12 @@ pub trait VectorIndex: Send + Sync {
     }
     /// `allow` ile izin verilen satirlar arasindan en yakin `k` sonucu dondurur.
     /// Rayon paralel taramasi gerektirdigi icin yordam `Sync` olmalidir.
-    fn search(&self, query: &[f32], k: usize, allow: &(dyn Fn(usize) -> bool + Sync)) -> Vec<(usize, f32)>;
+    fn search(
+        &self,
+        query: &[f32],
+        k: usize,
+        allow: &(dyn Fn(usize) -> bool + Sync),
+    ) -> Vec<(usize, f32)>;
 }
 
 /// Satir-oncelikli tek bir `Vec<f32>` icinde tutulan duz indeks.
@@ -79,7 +84,12 @@ impl VectorIndex for FlatIndex {
         self.rows
     }
 
-    fn search(&self, query: &[f32], k: usize, allow: &(dyn Fn(usize) -> bool + Sync)) -> Vec<(usize, f32)> {
+    fn search(
+        &self,
+        query: &[f32],
+        k: usize,
+        allow: &(dyn Fn(usize) -> bool + Sync),
+    ) -> Vec<(usize, f32)> {
         if self.rows == 0 || k == 0 || query.len() != self.dim {
             return Vec::new();
         }

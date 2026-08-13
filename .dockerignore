@@ -1,0 +1,10 @@
+target
+crates/dq-web/target
+crates/dq-web/dist
+.xwin-cache
+data
+models
+.git
+*.md
+docker-compose.yml
+Dockerfile

@@ -53,6 +53,14 @@ neighbor_window = 1
 context_token_budget = 3000
 mmr_lambda = 0.72
 
+[agent]
+enabled = true
+max_steps = 2                       # toplam RAG dongusu tavani (maliyet/gecikme siniri)
+enable_query_decomposition = true   # LLM sorguyu alt-sorgulara ayristirsin mi?
+enable_self_correction = true       # dusuk kaynak dogrulamasinda tek seferlik yeniden deneme
+enable_tool_doc_selection = true    # LLM belge kapsamini kendisi onerebilsin mi?
+max_sub_queries = 3
+
 [cache]
 enabled = true
 memory_capacity = 512

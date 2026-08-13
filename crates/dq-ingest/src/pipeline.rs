@@ -94,7 +94,9 @@ impl Ingestor {
 
         let chunks = crate::chunk::build_chunks(doc_id, &pages, &self.cfg, classification, lang);
         if chunks.is_empty() {
-            return Err(DqError::Ingest("Belge indekslenebilir icerik uretmedi".into()));
+            return Err(DqError::Ingest(
+                "Belge indekslenebilir icerik uretmedi".into(),
+            ));
         }
 
         Ok(IngestOutcome {
@@ -187,7 +189,11 @@ impl Ingestor {
                         } else {
                             ExtractionMethod::Hybrid
                         };
-                        slot.confidence = if conf_n == 0 { 0.0 } else { conf_sum / conf_n as f32 };
+                        slot.confidence = if conf_n == 0 {
+                            0.0
+                        } else {
+                            conf_sum / conf_n as f32
+                        };
                         slot.text = if slot.text.trim().is_empty() {
                             ocr_text
                         } else {

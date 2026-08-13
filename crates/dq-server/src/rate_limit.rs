@@ -44,7 +44,10 @@ impl RateLimiter {
         entry.retain(|t| now.duration_since(*t) < window);
         if entry.len() as u32 >= self.limit_per_min {
             let oldest = entry.first().copied().unwrap_or(now);
-            let retry = window.saturating_sub(now.duration_since(oldest)).as_secs().max(1);
+            let retry = window
+                .saturating_sub(now.duration_since(oldest))
+                .as_secs()
+                .max(1);
             return Err(retry);
         }
         entry.push(now);

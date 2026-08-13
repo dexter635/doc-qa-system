@@ -178,7 +178,7 @@ dependencies = [
  "num-traits",
  "pastey 0.1.1",
  "rayon",
- "thiserror",
+ "thiserror 2.0.20",
  "v_frame",
  "y4m",
 ]
@@ -710,7 +710,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10d60334b3b2e7c9d91ef8150abfb6fa4c1c39ebbcf4a81c2e346aad939fee3e"
 dependencies = [
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -824,7 +824,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "thiserror",
+ "thiserror 2.0.20",
  "toml",
  "tracing",
  "tracing-subscriber",
@@ -842,7 +842,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
  "tracing",
  "uuid",
 ]
@@ -862,7 +862,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
  "tracing",
  "uuid",
 ]
@@ -880,7 +880,7 @@ dependencies = [
  "regex",
  "serde",
  "tempfile",
- "thiserror",
+ "thiserror 2.0.20",
  "tracing",
  "uuid",
 ]
@@ -895,7 +895,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
  "tokio",
  "tracing",
  "uuid",
@@ -906,15 +906,17 @@ name = "dq-rag"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "dq-core",
  "dq-guard",
  "dq-index",
  "dq-ingest",
  "dq-llm",
+ "parking_lot",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
  "tokio",
  "tracing",
  "uuid",
@@ -935,6 +937,8 @@ dependencies = [
  "dq-llm",
  "dq-rag",
  "jsonwebtoken",
+ "metrics",
+ "metrics-exporter-prometheus",
  "parking_lot",
  "rand_core 0.6.4",
  "serde",
@@ -1355,7 +1359,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.20",
  "ureq",
  "windows-sys 0.61.2",
 ]
@@ -1398,6 +1402,12 @@ dependencies = [
  "http-body",
  "pin-project-lite",
 ]
+
+[[package]]
+name = "http-range-header"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9171a2ea8a68358193d15dd5d70c1c10a2afc3e7e4c5bc92bc9f025cebd7359c"
 
 [[package]]
 name = "httparse"
@@ -1939,7 +1949,7 @@ dependencies = [
  "rayon",
  "sha2",
  "stringprep",
- "thiserror",
+ "thiserror 2.0.20",
  "time",
  "ttf-parser",
  "weezl",
@@ -1967,7 +1977,7 @@ dependencies = [
  "rangemap",
  "sha2",
  "stringprep",
- "thiserror",
+ "thiserror 2.0.20",
  "ttf-parser",
  "weezl",
 ]
@@ -2052,10 +2062,60 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
+name = "metrics"
+version = "0.24.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89550ee9f79e88fef3119de263694973a8adb26c21d75322164fb8c493039fe2"
+dependencies = [
+ "portable-atomic",
+ "rapidhash",
+]
+
+[[package]]
+name = "metrics-exporter-prometheus"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd7399781913e5393588a8d8c6a2867bf85fb38eaf2502fdce465aad2dc6f034"
+dependencies = [
+ "base64 0.22.1",
+ "indexmap",
+ "metrics",
+ "metrics-util",
+ "quanta",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "metrics-util"
+version = "0.19.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8496cc523d1f94c1385dd8f0f0c2c480b2b8aeccb5b7e4485ad6365523ae376"
+dependencies = [
+ "crossbeam-epoch",
+ "crossbeam-utils",
+ "hashbrown 0.15.5",
+ "metrics",
+ "quanta",
+ "rand 0.9.5",
+ "rand_xoshiro",
+ "sketches-ddsketch",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
+
+[[package]]
+name = "mime_guess"
+version = "2.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7c44f8e672c00fe5308fa235f821cb4198414e1c77935c1ab6948d3fd78550e"
+dependencies = [
+ "mime",
+ "unicase",
+]
 
 [[package]]
 name = "minimal-lexical"
@@ -2629,6 +2689,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "quanta"
+version = "0.12.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3ab5a9d756f0d97bdc89019bd2e4ea098cf9cde50ee7564dde6b81ccc8f06c7"
+dependencies = [
+ "crossbeam-utils",
+ "libc",
+ "once_cell",
+ "raw-cpuid",
+ "wasi",
+ "web-sys",
+ "winapi",
+]
+
+[[package]]
 name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2648,7 +2723,7 @@ dependencies = [
  "rustc-hash",
  "rustls",
  "socket2",
- "thiserror",
+ "thiserror 2.0.20",
  "tokio",
  "tracing",
  "web-time",
@@ -2670,7 +2745,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "slab",
- "thiserror",
+ "thiserror 2.0.20",
  "tinyvec",
  "tracing",
  "web-time",
@@ -2776,10 +2851,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_xoshiro"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f703f4665700daf5512dcca5f43afa6af89f09db47fb56be587f80636bda2d41"
+dependencies = [
+ "rand_core 0.9.5",
+]
+
+[[package]]
 name = "rangemap"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "973443cf09a9c8656b574a866ab68dfa19f0867d0340648c7d2f6a71b8a8ea68"
+
+[[package]]
+name = "rapidhash"
+version = "4.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5da7e78a036ce858e8d55b7e7dc8ba3a88b78350fd2155d3591bbd966b58589e"
+dependencies = [
+ "rustversion",
+]
 
 [[package]]
 name = "rav1e"
@@ -2811,7 +2904,7 @@ dependencies = [
  "rand 0.9.5",
  "rand_chacha",
  "simd_helpers",
- "thiserror",
+ "thiserror 2.0.20",
  "v_frame",
  "wasm-bindgen",
 ]
@@ -2900,7 +2993,7 @@ checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
 dependencies = [
  "getrandom 0.2.17",
  "libredox",
- "thiserror",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -3267,9 +3360,15 @@ checksum = "0d585997b0ac10be3c5ee635f1bab02d512760d14b7c468801ac8a01d9ae5f1d"
 dependencies = [
  "num-bigint",
  "num-traits",
- "thiserror",
+ "thiserror 2.0.20",
  "time",
 ]
+
+[[package]]
+name = "sketches-ddsketch"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c6f73aeb92d671e0cc4dca167e59b2deb6387c375391bc99ee743f326994a2b"
 
 [[package]]
 name = "slab"
@@ -3435,11 +3534,31 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
+dependencies = [
+ "thiserror-impl 1.0.69",
+]
+
+[[package]]
+name = "thiserror"
 version = "2.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 2.0.20",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3558,7 +3677,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spm_precompiled",
- "thiserror",
+ "thiserror 2.0.20",
  "unicode-normalization-alignments",
  "unicode-segmentation",
  "unicode_categories",
@@ -3689,12 +3808,19 @@ checksum = "4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840"
 dependencies = [
  "bitflags 2.13.1",
  "bytes",
+ "futures-core",
  "futures-util",
  "http",
  "http-body",
  "http-body-util",
+ "http-range-header",
+ "httpdate",
+ "mime",
+ "mime_guess",
+ "percent-encoding",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
  "tower",
  "tower-layer",
  "tower-service",
@@ -3815,6 +3941,12 @@ name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
+
+[[package]]
+name = "unicase"
+version = "2.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbc4bc3a9f746d862c45cb89d705aa10f187bb96c76001afab07a0d35ce60142"
 
 [[package]]
 name = "unicode-bidi"

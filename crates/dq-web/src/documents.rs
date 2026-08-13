@@ -6,10 +6,19 @@ use crate::auth::AuthState;
 use crate::dom::{first_file, select_value};
 use crate::ui;
 
-const CLASSIFICATIONS: [&str; 5] = ["unclassified", "restricted", "confidential", "secret", "top_secret"];
+const CLASSIFICATIONS: [&str; 5] = [
+    "unclassified",
+    "restricted",
+    "confidential",
+    "secret",
+    "top_secret",
+];
 
 fn clearance_rank(c: &str) -> usize {
-    CLASSIFICATIONS.iter().position(|x| *x == c.to_ascii_lowercase()).unwrap_or(0)
+    CLASSIFICATIONS
+        .iter()
+        .position(|x| *x == c.to_ascii_lowercase())
+        .unwrap_or(0)
 }
 
 fn reload_documents(

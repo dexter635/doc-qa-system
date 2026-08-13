@@ -34,7 +34,10 @@ fn heading_level(line: &str) -> Option<usize> {
         return None;
     }
     if let Some(c) = NUMBERED_HEADING.captures(t) {
-        let dots = c.get(1).map(|m| m.as_str().matches('.').count()).unwrap_or(0);
+        let dots = c
+            .get(1)
+            .map(|m| m.as_str().matches('.').count())
+            .unwrap_or(0);
         // "1.5 Litre" gibi olcu ifadelerini baslik sanmamak icin: baslik
         // satiri cumle noktalama isareti ile bitmemelidir.
         if !t.ends_with('.') || t.split_whitespace().count() <= 12 {
@@ -129,7 +132,11 @@ pub fn build_chunks(
                             .join(" > "),
                     )
                 };
-                let confidence = if conf_n == 0 { 1.0 } else { conf_sum / conf_n as f32 };
+                let confidence = if conf_n == 0 {
+                    1.0
+                } else {
+                    conf_sum / conf_n as f32
+                };
                 chunks.push(Chunk {
                     id: Uuid::new_v4(),
                     doc_id,
@@ -237,7 +244,11 @@ pub fn build_chunks(
                         .join(" > "),
                 )
             };
-            let confidence = if conf_n == 0 { 1.0 } else { conf_sum / conf_n as f32 };
+            let confidence = if conf_n == 0 {
+                1.0
+            } else {
+                conf_sum / conf_n as f32
+            };
             chunks.push(Chunk {
                 id: Uuid::new_v4(),
                 doc_id,
@@ -302,7 +313,10 @@ mod tests {
         assert_eq!(heading_level("3.2 Periyodik Bakım"), Some(2));
         assert_eq!(heading_level("MADDE 7"), Some(1));
         assert_eq!(heading_level("GENEL HÜKÜMLER"), Some(1));
-        assert_eq!(heading_level("Bu bir normal cümledir ve başlık değildir."), None);
+        assert_eq!(
+            heading_level("Bu bir normal cümledir ve başlık değildir."),
+            None
+        );
     }
 
     #[test]
@@ -320,7 +334,9 @@ mod tests {
         assert!(!chunks.is_empty());
         let path = chunks[0].heading_path.as_deref().unwrap_or("");
         assert!(path.contains("BAKIM"), "path: {path}");
-        assert!(chunks.iter().all(|c| c.token_estimate <= cfg.chunk_tokens + 60));
+        assert!(chunks
+            .iter()
+            .all(|c| c.token_estimate <= cfg.chunk_tokens + 60));
     }
 
     #[test]
@@ -328,7 +344,10 @@ mod tests {
         let cfg = IngestConfig::default();
         let chunks = build_chunks(
             Uuid::new_v4(),
-            &[page(1, &"Birinci sayfa metni. ".repeat(60)), page(2, &"İkinci sayfa metni. ".repeat(60))],
+            &[
+                page(1, &"Birinci sayfa metni. ".repeat(60)),
+                page(2, &"İkinci sayfa metni. ".repeat(60)),
+            ],
             &cfg,
             Classification::Unclassified,
             Lang::Tr,

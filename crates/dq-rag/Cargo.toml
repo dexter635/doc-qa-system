@@ -22,4 +22,6 @@ chrono.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
+async-trait.workspace = true
+parking_lot.workspace = true
 

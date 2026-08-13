@@ -217,9 +217,8 @@ pub fn build(cfg: &EmbeddingConfig) -> (std::sync::Arc<dyn Embedder>, Option<Str
             (std::sync::Arc::new(e), None)
         }
         Err(e) => {
-            let msg = format!(
-                "Gomme modeli yuklenemedi ({e}); dusuk kaliteli yedek gomme kullaniliyor."
-            );
+            let msg =
+                format!("Gomme modeli yuklenemedi ({e}); dusuk kaliteli yedek gomme kullaniliyor.");
             tracing::error!("{msg}");
             (std::sync::Arc::new(HashEmbedder::new(cfg.dim)), Some(msg))
         }
@@ -245,7 +244,9 @@ mod tests {
         let e = HashEmbedder::new(256);
         let q = e.embed_query("periyodik bakım süresi").unwrap();
         let near = e.embed_query("periyodik bakım aralığı").unwrap();
-        let far = e.embed_query("uçuş kontrol yüzeyleri kalibrasyonu").unwrap();
+        let far = e
+            .embed_query("uçuş kontrol yüzeyleri kalibrasyonu")
+            .unwrap();
         assert!(cosine(&q, &near) > cosine(&q, &far));
     }
 }

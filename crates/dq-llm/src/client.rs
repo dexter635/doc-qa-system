@@ -44,9 +44,22 @@ pub struct Completion {
 pub trait LlmClient: Send + Sync {
     fn model(&self) -> String;
     async fn chat(&self, messages: Vec<ChatMessage>) -> Result<Completion>;
+    /// `chat`'in ayni sozlesmesi ancak sicaklik (temperature) gecici olarak
+    /// ezilir. Yapisal JSON uretimi (planlama/yeniden formulasyon) gibi
+    /// deterministiklik gerektiren cagrilar icin kullanilir.
+    async fn chat_with_temperature(
+        &self,
+        messages: Vec<ChatMessage>,
+        temperature: f32,
+    ) -> Result<Completion>;
     /// Servisin ayakta olup olmadigi. Basarisizsa sistem cikarimsal moda duser.
     async fn healthy(&self) -> bool;
 }
+
+/// Gecici (transient) hatalarda denenecek en fazla deneme sayisi (ilk deneme dahil).
+const MAX_ATTEMPTS: u32 = 3;
+/// Denemeler arasi baslangic bekleme suresi; her denemede ikiye katlanir.
+const BASE_BACKOFF: Duration = Duration::from_millis(400);
 
 pub struct OpenAiCompatClient {
     http: reqwest::Client,
@@ -121,10 +134,59 @@ impl LlmClient for OpenAiCompatClient {
     }
 
     async fn chat(&self, messages: Vec<ChatMessage>) -> Result<Completion> {
+        self.chat_retrying(messages, self.temperature).await
+    }
+
+    async fn chat_with_temperature(
+        &self,
+        messages: Vec<ChatMessage>,
+        temperature: f32,
+    ) -> Result<Completion> {
+        self.chat_retrying(messages, temperature).await
+    }
+
+    async fn healthy(&self) -> bool {
+        let mut req = self.http.get(format!("{}/models", self.base_url));
+        if !self.api_key.is_empty() {
+            req = req.bearer_auth(&self.api_key);
+        }
+        match tokio::time::timeout(Duration::from_secs(5), req.send()).await {
+            Ok(Ok(r)) => r.status().is_success(),
+            _ => false,
+        }
+    }
+}
+
+impl OpenAiCompatClient {
+    /// Gecici hatalarda (ag hatasi, 429, 5xx) ussel geri cekilme ile yeniden
+    /// dener; istemci hatalarinda (4xx, 429 haric) hemen vazgecer - tekrar
+    /// denemek sonucu degistirmeyecek bir isteği bosuna cogaltmamak icin.
+    async fn chat_retrying(
+        &self,
+        messages: Vec<ChatMessage>,
+        temperature: f32,
+    ) -> Result<Completion> {
+        let mut attempt = 0u32;
+        let mut backoff = BASE_BACKOFF;
+        loop {
+            attempt += 1;
+            match self.chat_once(&messages, temperature).await {
+                Ok(c) => return Ok(c),
+                Err(e) if attempt < MAX_ATTEMPTS && is_retryable(&e) => {
+                    tracing::warn!(attempt, error = %e, "LLM cagrisi basarisiz, yeniden deneniyor");
+                    tokio::time::sleep(backoff).await;
+                    backoff *= 2;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    async fn chat_once(&self, messages: &[ChatMessage], temperature: f32) -> Result<Completion> {
         let body = ChatRequest {
             model: &self.model,
-            messages: &messages,
-            temperature: self.temperature,
+            messages,
+            temperature,
             top_p: self.top_p,
             max_tokens: self.max_tokens,
             stream: false,
@@ -180,15 +242,20 @@ impl LlmClient for OpenAiCompatClient {
             completion_tokens: usage.completion_tokens,
         })
     }
+}
 
-    async fn healthy(&self) -> bool {
-        let mut req = self.http.get(format!("{}/models", self.base_url));
-        if !self.api_key.is_empty() {
-            req = req.bearer_auth(&self.api_key);
-        }
-        match tokio::time::timeout(Duration::from_secs(5), req.send()).await {
-            Ok(Ok(r)) => r.status().is_success(),
-            _ => false,
+/// Hata mesaji, ag/gecici bir sorunu mu (yeniden denenebilir) yoksa kalici bir
+/// istemci hatasini mi (400 gibi - yeniden denemek sonucu degistirmez) yansitiyor.
+fn is_retryable(e: &DqError) -> bool {
+    let msg = e.to_string();
+    if msg.contains("ulasilamadi") {
+        return true; // baglanti/ag hatasi
+    }
+    // "LLM 5xx/429 dondu: ..." bicimindeki mesajlardan durum kodunu yakala.
+    for code in ["500", "502", "503", "504", "429"] {
+        if msg.contains(code) {
+            return true;
         }
     }
+    false
 }

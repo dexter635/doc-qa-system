@@ -6,10 +6,13 @@ use uuid::Uuid;
 ///
 /// Sayisal siralama onemlidir: kullanicinin yetki seviyesi, belgenin
 /// derecesinden kucukse erisim reddedilir (Bell-LaPadula "no read up").
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Classification {
     /// Tasnif Disi / Unclassified
+    #[default]
     Unclassified = 0,
     /// Hizmete Ozel / Restricted
     Restricted = 1,
@@ -55,12 +58,6 @@ impl Classification {
             4 => Classification::TopSecret,
             _ => Classification::Unclassified,
         }
-    }
-}
-
-impl Default for Classification {
-    fn default() -> Self {
-        Classification::Unclassified
     }
 }
 
@@ -242,6 +239,32 @@ pub enum AnswerKind {
     Blocked,
 }
 
+/// Ajan dongusunun tek bir adiminin turu (kullaniciya/denetime seffaflik icin).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentStepKind {
+    /// Sorgu ayristirma ve arac (belge kapsami) secimi.
+    Plan,
+    /// Bir alt-sorgu icin hibrit arama calistirildi.
+    Retrieve,
+    /// LLM (veya cikarimsal yedek) ile cevap uretildi.
+    Generate,
+    /// Cikti guardrail'i cevabi degerlendirdi; yetersizse yeniden deneme tetiklendi.
+    Critique,
+}
+
+/// Ajanin attigi tek bir adimin kaydi. `Answer.trace` icinde tasinir; kullanici
+/// arayuzunde "ajan adimlari" olarak, denetimde ise karar gerekcesi olarak kullanilir.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentStep {
+    pub step: usize,
+    pub kind: AgentStepKind,
+    /// Insan-okunur kisa aciklama ("2 alt sorguya ayristirildi" gibi).
+    pub description: String,
+    /// Makine tarafindan islenebilir ayrinti (alt sorgular, skorlar, sureler).
+    pub detail: serde_json::Value,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Answer {
     pub query_id: Uuid,
@@ -257,6 +280,9 @@ pub struct Answer {
     pub model: String,
     /// Guardrail / pipeline uyarilari (kullaniciya gosterilir).
     pub warnings: Vec<String>,
+    /// Ajanin izledigi adimlar (planlama, arama, uretim, elestiri/yeniden deneme).
+    #[serde(default)]
+    pub trace: Vec<AgentStep>,
 }
 
 /// Kullanici oturum baglami; yetkilendirme ve denetim kaydi icin tasinir.

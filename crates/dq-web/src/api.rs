@@ -67,6 +67,13 @@ pub struct Groundedness {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct AgentStep {
+    pub step: usize,
+    pub kind: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Answer {
     pub query_id: String,
     pub kind: String,
@@ -79,6 +86,8 @@ pub struct Answer {
     pub latency_ms: u64,
     pub model: String,
     pub warnings: Vec<String>,
+    #[serde(default)]
+    pub trace: Vec<AgentStep>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -111,7 +120,9 @@ struct AskRequest<'a> {
     doc_ids: &'a [String],
 }
 
-async fn parse_response<T: for<'de> Deserialize<'de>>(resp: gloo_net::http::Response) -> ApiResult<T> {
+async fn parse_response<T: for<'de> Deserialize<'de>>(
+    resp: gloo_net::http::Response,
+) -> ApiResult<T> {
     if resp.ok() {
         resp.json::<T>()
             .await
@@ -181,7 +192,8 @@ pub async fn upload_document(
     file: web_sys::File,
     classification: &str,
 ) -> ApiResult<UploadResponse> {
-    let form = web_sys::FormData::new().map_err(|_| ApiErr::Network("FormData olusturulamadi".into()))?;
+    let form =
+        web_sys::FormData::new().map_err(|_| ApiErr::Network("FormData olusturulamadi".into()))?;
     form.append_with_blob_and_filename("file", &file, &file.name())
         .map_err(|_| ApiErr::Network("dosya forma eklenemedi".into()))?;
     form.append_with_str("classification", classification)

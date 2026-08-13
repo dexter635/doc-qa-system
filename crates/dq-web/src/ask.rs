@@ -136,6 +136,19 @@ fn AnswerCard(answer: Answer) -> impl IntoView {
                     }).collect::<Vec<_>>()}
                 </div>
             })}
+            {(!answer.trace.is_empty()).then(|| view! {
+                <details class="agent-trace">
+                    <summary>{format!("Ajan adımları ({})", answer.trace.len())}</summary>
+                    <ol>
+                        {answer.trace.iter().map(|s| view! {
+                            <li>
+                                <span class=format!("badge step-{}", s.kind)>{s.kind.clone()}</span>
+                                " "{s.description.clone()}
+                            </li>
+                        }).collect::<Vec<_>>()}
+                    </ol>
+                </details>
+            })}
         </div>
     }
 }

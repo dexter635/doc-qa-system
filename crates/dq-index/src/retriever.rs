@@ -91,7 +91,9 @@ impl Retriever {
         for (chunk, vec, filename) in rows {
             let idx = inner.entries.len();
             inner.by_doc.entry(chunk.doc_id).or_default().push(idx);
-            inner.sparse.push(&chunk.text, chunk.heading_path.as_deref());
+            inner
+                .sparse
+                .push(&chunk.text, chunk.heading_path.as_deref());
             inner.dense.push(&vec);
             inner.entries.push(Entry { chunk, filename });
         }
@@ -106,7 +108,9 @@ impl Retriever {
         for (chunk, vec) in chunks.iter().zip(vectors) {
             let idx = inner.entries.len();
             inner.by_doc.entry(chunk.doc_id).or_default().push(idx);
-            inner.sparse.push(&chunk.text, chunk.heading_path.as_deref());
+            inner
+                .sparse
+                .push(&chunk.text, chunk.heading_path.as_deref());
             inner.dense.push(vec);
             inner.entries.push(Entry {
                 chunk: chunk.clone(),
@@ -148,7 +152,11 @@ impl Retriever {
 
         let dense_map: HashMap<usize, f32> = dense_hits.iter().copied().collect();
         let sparse_map: HashMap<usize, f32> = sparse_hits.iter().copied().collect();
-        let max_sparse = sparse_hits.first().map(|(_, s)| *s).unwrap_or(1.0).max(1e-6);
+        let max_sparse = sparse_hits
+            .first()
+            .map(|(_, s)| *s)
+            .unwrap_or(1.0)
+            .max(1e-6);
 
         let candidates: Vec<usize> = fused
             .iter()
@@ -195,7 +203,11 @@ impl Retriever {
             }
         }
 
-        out.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        out.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         out.retain(|s| s.score >= self.cfg.min_score);
         out.truncate(final_k);
         Ok(out)
@@ -341,11 +353,7 @@ mod tests {
 
     #[test]
     fn mmr_drops_near_duplicates() {
-        let vectors: Vec<Vec<f32>> = vec![
-            vec![1.0, 0.0],
-            vec![0.99, 0.14],
-            vec![0.0, 1.0],
-        ];
+        let vectors: Vec<Vec<f32>> = vec![vec![1.0, 0.0], vec![0.99, 0.14], vec![0.0, 1.0]];
         let query = vec![1.0, 0.0];
         // Dusuk lambda cesitliligi agirlikli oldugu icin (lambda->0 = saf
         // cesitlilik, lambda->1 = saf alaka) burada 0.3 kullanilir; 0.6 gibi
@@ -356,4 +364,3 @@ mod tests {
         assert!(picked.contains(&2), "cesitlilik saglanmadi: {picked:?}");
     }
 }
-

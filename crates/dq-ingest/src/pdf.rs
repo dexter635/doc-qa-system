@@ -20,7 +20,8 @@ use lopdf::{Dictionary, Document, Object};
 /// ile izole edilir; tek bir hatali belge sunucuyu dusurmemelidir.
 pub fn page_texts(bytes: &[u8]) -> Result<Vec<String>> {
     let owned = bytes.to_vec();
-    let result = std::panic::catch_unwind(move || pdf_extract::extract_text_from_mem_by_pages(&owned));
+    let result =
+        std::panic::catch_unwind(move || pdf_extract::extract_text_from_mem_by_pages(&owned));
     match result {
         Ok(Ok(pages)) => Ok(pages),
         Ok(Err(e)) => Err(DqError::Ingest(format!("PDF metni okunamadi: {e}"))),
@@ -39,7 +40,10 @@ pub fn page_count(bytes: &[u8]) -> Result<usize> {
 /// Sayfa numarasi (1'den baslar) -> o sayfadaki gomulu goruntuler.
 ///
 /// Taranmis belgelerde sayfa basina genellikle tek bir buyuk goruntu bulunur.
-pub fn page_images(bytes: &[u8], only_pages: &[usize]) -> Result<BTreeMap<usize, Vec<DynamicImage>>> {
+pub fn page_images(
+    bytes: &[u8],
+    only_pages: &[usize],
+) -> Result<BTreeMap<usize, Vec<DynamicImage>>> {
     let doc = load(bytes)?;
     let mut out: BTreeMap<usize, Vec<DynamicImage>> = BTreeMap::new();
 
@@ -51,12 +55,17 @@ pub fn page_images(bytes: &[u8], only_pages: &[usize]) -> Result<BTreeMap<usize,
         let Some(resources) = resolve_resources(&doc, page_id) else {
             continue;
         };
-        let Ok(xobjects) = resources.get(b"XObject").and_then(|o| resolve_dict(&doc, o)) else {
+        let Ok(xobjects) = resources
+            .get(b"XObject")
+            .and_then(|o| resolve_dict(&doc, o))
+        else {
             continue;
         };
 
         for (_, obj_ref) in xobjects.iter() {
-            let Ok(id) = obj_ref.as_reference() else { continue };
+            let Ok(id) = obj_ref.as_reference() else {
+                continue;
+            };
             let Ok(stream) = doc.get_object(id).and_then(|o| o.as_stream()) else {
                 continue;
             };
@@ -87,7 +96,7 @@ fn resolve_resources(doc: &Document, page_id: lopdf::ObjectId) -> Option<Diction
     let mut current = page_id;
     for _ in 0..8 {
         let dict = doc.get_object(current).ok()?.as_dict().ok()?;
-        if let Some(res) = dict.get(b"Resources").ok() {
+        if let Ok(res) = dict.get(b"Resources") {
             if let Ok(d) = resolve_dict(doc, res) {
                 return Some(d);
             }
@@ -136,7 +145,11 @@ fn decode_image_stream(stream: &lopdf::Stream) -> Result<DynamicImage> {
         .decompressed_content()
         .map_err(|e| DqError::Ingest(format!("akis acilamadi: {e}")))?;
 
-    let bpc = stream.dict.get(b"BitsPerComponent").and_then(|o| o.as_i64()).unwrap_or(8);
+    let bpc = stream
+        .dict
+        .get(b"BitsPerComponent")
+        .and_then(|o| o.as_i64())
+        .unwrap_or(8);
     let components = color_components(stream);
 
     match (bpc, components) {

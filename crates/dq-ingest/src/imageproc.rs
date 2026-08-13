@@ -83,11 +83,15 @@ pub fn binarize_otsu(img: &GrayImage) -> GrayImage {
     if total == 0 {
         return img.clone();
     }
-    let sum_all: f64 = hist.iter().enumerate().map(|(i, c)| i as f64 * *c as f64).sum();
+    let sum_all: f64 = hist
+        .iter()
+        .enumerate()
+        .map(|(i, c)| i as f64 * *c as f64)
+        .sum();
 
     let (mut w_b, mut sum_b, mut best_var, mut threshold) = (0u64, 0f64, -1f64, 128usize);
-    for t in 0..256usize {
-        w_b += hist[t];
+    for (t, &count) in hist.iter().enumerate() {
+        w_b += count;
         if w_b == 0 {
             continue;
         }
@@ -95,7 +99,7 @@ pub fn binarize_otsu(img: &GrayImage) -> GrayImage {
         if w_f == 0 {
             break;
         }
-        sum_b += t as f64 * hist[t] as f64;
+        sum_b += t as f64 * count as f64;
         let m_b = sum_b / w_b as f64;
         let m_f = (sum_all - sum_b) / w_f as f64;
         let between = w_b as f64 * w_f as f64 * (m_b - m_f).powi(2);
@@ -107,7 +111,11 @@ pub fn binarize_otsu(img: &GrayImage) -> GrayImage {
 
     let mut out = img.clone();
     for p in out.pixels_mut() {
-        p.0[0] = if (p.0[0] as usize) > threshold { 255 } else { 0 };
+        p.0[0] = if (p.0[0] as usize) > threshold {
+            255
+        } else {
+            0
+        };
     }
     out
 }

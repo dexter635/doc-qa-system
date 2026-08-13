@@ -7,7 +7,7 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use dq_core::{Answer, Classification, DqError, Document, UserContext};
+use dq_core::{Answer, Classification, Document, DqError, UserContext};
 
 use crate::auth::AuthService;
 use crate::error::{ApiError, ApiResult};
@@ -15,14 +15,31 @@ use crate::state::AppState;
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/api/live", get(live))
         .route("/api/health", get(health))
+        .route("/metrics", get(metrics_endpoint))
         .route("/api/auth/login", post(login))
         .route("/api/documents", get(list_documents).post(upload_document))
-        .route("/api/documents/{id}", get(get_document).delete(delete_document))
+        .route(
+            "/api/documents/{id}",
+            get(get_document).delete(delete_document),
+        )
         .route("/api/ask", post(ask))
         .route("/api/audit", get(audit_log))
         .route("/api/audit/verify", get(audit_verify))
         .with_state(state)
+}
+
+/// Canlilik (liveness) yoklamasi: hicbir bagimliliga bakmadan sureclerin
+/// ayakta oldugunu dogrular (Docker/K8s HEALTHCHECK icin).
+async fn live() -> &'static str {
+    "ok"
+}
+
+/// Prometheus metrik ucnoktasi. Kimlik dogrulama gerektirmez (scraping
+/// ajaninin token yonetmesi beklenmez); ag seviyesinde kisitlanmalidir.
+async fn metrics_endpoint(State(state): State<AppState>) -> String {
+    state.metrics.render()
 }
 
 /// `Authorization: Bearer <token>` basligini dogrular. Auth kapaliysa
@@ -32,7 +49,10 @@ fn current_user(state: &AppState, headers: &HeaderMap) -> ApiResult<UserContext>
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "));
-    state.auth.verify_token_or_anonymous(token).map_err(ApiError)
+    state
+        .auth
+        .verify_token_or_anonymous(token)
+        .map_err(ApiError)
 }
 
 fn require_role(user: &UserContext, role: &str) -> ApiResult<()> {
@@ -46,8 +66,11 @@ fn require_role(user: &UserContext, role: &str) -> ApiResult<()> {
 }
 
 fn parse_classification(s: &str) -> ApiResult<Classification> {
-    serde_json::from_value(serde_json::Value::String(s.to_string()))
-        .map_err(|_| ApiError(DqError::BadRequest(format!("Gecersiz gizlilik derecesi: {s}"))))
+    serde_json::from_value(serde_json::Value::String(s.to_string())).map_err(|_| {
+        ApiError(DqError::BadRequest(format!(
+            "Gecersiz gizlilik derecesi: {s}"
+        )))
+    })
 }
 
 async fn health(State(state): State<AppState>) -> Json<serde_json::Value> {
@@ -78,9 +101,14 @@ struct LoginResponse {
     roles: Vec<String>,
 }
 
-async fn login(State(state): State<AppState>, Json(req): Json<LoginRequest>) -> ApiResult<Json<LoginResponse>> {
+async fn login(
+    State(state): State<AppState>,
+    Json(req): Json<LoginRequest>,
+) -> ApiResult<Json<LoginResponse>> {
     if !state.auth.enabled() {
-        return Err(ApiError(DqError::BadRequest("Kimlik dogrulama devre disi".into())));
+        return Err(ApiError(DqError::BadRequest(
+            "Kimlik dogrulama devre disi".into(),
+        )));
     }
     // Kullanici bulunamasa bile ayni maliyette bir hash dogrulamasi yapilir;
     // boylece yanit suresi kullanici adinin var olup olmadigini sizdirmaz.
@@ -92,13 +120,18 @@ async fn login(State(state): State<AppState>, Json(req): Json<LoginRequest>) -> 
     };
     let password_ok = AuthService::verify_password(&req.password, hash);
     let Some(user) = user.filter(|_| password_ok) else {
-        return Err(ApiError(DqError::Unauthorized("Kullanici adi veya parola hatali".into())));
+        return Err(ApiError(DqError::Unauthorized(
+            "Kullanici adi veya parola hatali".into(),
+        )));
     };
     let token = state.auth.issue_token(user)?;
-    state
-        .pipeline
-        .store()
-        .append_audit(&user.username, "login", None, "success", serde_json::json!({}))?;
+    state.pipeline.store().append_audit(
+        &user.username,
+        "login",
+        None,
+        "success",
+        serde_json::json!({}),
+    )?;
     Ok(Json(LoginResponse {
         token,
         username: user.username.clone(),
@@ -149,21 +182,35 @@ async fn upload_document(
         }
     }
 
-    let bytes = file_bytes.ok_or_else(|| ApiError(DqError::BadRequest("'file' alani gerekli".into())))?;
+    let bytes =
+        file_bytes.ok_or_else(|| ApiError(DqError::BadRequest("'file' alani gerekli".into())))?;
 
     // Bell-LaPadula "no write up": kullanici kendi yetki seviyesinin
     // uzerinde bir gizlilik derecesi iddia edemez.
     if classification > user.clearance {
         return Err(ApiError(DqError::Forbidden(
-            "Belgeyi kendi yetki seviyenizin uzerinde bir gizlilik derecesiyle isaretleyemezsiniz".into(),
+            "Belgeyi kendi yetki seviyenizin uzerinde bir gizlilik derecesiyle isaretleyemezsiniz"
+                .into(),
         )));
     }
 
     let owner = user.username.clone();
     let pipeline = state.pipeline.clone();
-    let outcome = tokio::task::spawn_blocking(move || pipeline.ingest_document(&bytes, &filename, classification, &owner))
-        .await
-        .map_err(|e| ApiError(DqError::Internal(format!("Isleme gorevi calistirilamadi: {e}"))))??;
+    let started = std::time::Instant::now();
+    let result = tokio::task::spawn_blocking(move || {
+        pipeline.ingest_document(&bytes, &filename, classification, &owner)
+    })
+    .await
+    .map_err(|e| {
+        ApiError(DqError::Internal(format!(
+            "Isleme gorevi calistirilamadi: {e}"
+        )))
+    })?;
+    crate::metrics::record_ingest(
+        if result.is_ok() { "ok" } else { "error" },
+        started.elapsed(),
+    );
+    let outcome = result?;
 
     Ok(Json(UploadResponse {
         document: outcome.document,
@@ -171,7 +218,10 @@ async fn upload_document(
     }))
 }
 
-async fn list_documents(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Vec<Document>>> {
+async fn list_documents(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Vec<Document>>> {
     let user = current_user(&state, &headers)?;
     Ok(Json(state.pipeline.list_documents(user.clearance)?))
 }
@@ -214,19 +264,36 @@ struct AskRequest {
     doc_ids: Vec<Uuid>,
 }
 
-async fn ask(State(state): State<AppState>, headers: HeaderMap, Json(req): Json<AskRequest>) -> ApiResult<Json<Answer>> {
+async fn ask(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<AskRequest>,
+) -> ApiResult<Json<Answer>> {
     let user = current_user(&state, &headers)?;
+    let started = std::time::Instant::now();
     let answer = state.pipeline.ask(&req.query, &user, req.doc_ids).await?;
+    let kind = match answer.kind {
+        dq_core::AnswerKind::Grounded => "grounded",
+        dq_core::AnswerKind::Refused => "refused",
+        dq_core::AnswerKind::Blocked => "blocked",
+    };
+    crate::metrics::record_ask(kind, answer.cached, answer.trace.len(), started.elapsed());
     Ok(Json(answer))
 }
 
-async fn audit_log(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Vec<serde_json::Value>>> {
+async fn audit_log(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Vec<serde_json::Value>>> {
     let user = current_user(&state, &headers)?;
     require_role(&user, "admin")?;
     Ok(Json(state.pipeline.store().recent_audit(200)?))
 }
 
-async fn audit_verify(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<serde_json::Value>> {
+async fn audit_verify(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<serde_json::Value>> {
     let user = current_user(&state, &headers)?;
     require_role(&user, "admin")?;
     let broken_at = state.pipeline.store().verify_audit_chain()?;

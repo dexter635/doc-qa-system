@@ -34,7 +34,9 @@ impl OcrEngine for NoopOcr {
         "noop"
     }
     fn recognize(&self, _img: &DynamicImage, _lang: Lang) -> Result<OcrPage> {
-        Err(DqError::Ocr("OCR devre disi (ocr.engine = \"none\")".into()))
+        Err(DqError::Ocr(
+            "OCR devre disi (ocr.engine = \"none\")".into(),
+        ))
     }
     fn available(&self) -> bool {
         false
@@ -93,7 +95,8 @@ impl OcrEngine for TesseractOcr {
             let mut buf = Vec::new();
             img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
                 .map_err(|e| DqError::Ocr(format!("PNG yazilamadi: {e}")))?;
-            f.write_all(&buf).map_err(|e| DqError::Ocr(format!("yazma: {e}")))?;
+            f.write_all(&buf)
+                .map_err(|e| DqError::Ocr(format!("yazma: {e}")))?;
         }
 
         let out = Command::new(&self.bin)
@@ -114,7 +117,10 @@ impl OcrEngine for TesseractOcr {
             let err = String::from_utf8_lossy(&out.stderr);
             return Err(DqError::Ocr(format!("tesseract hatasi: {}", err.trim())));
         }
-        Ok(parse_tsv(&String::from_utf8_lossy(&out.stdout), self.min_conf))
+        Ok(parse_tsv(
+            &String::from_utf8_lossy(&out.stdout),
+            self.min_conf,
+        ))
     }
 }
 
@@ -171,7 +177,11 @@ fn parse_tsv(tsv: &str, min_conf: f32) -> OcrPage {
 
     OcrPage {
         text: lines.join("\n"),
-        confidence: if conf_n == 0 { 0.0 } else { conf_sum / conf_n as f32 },
+        confidence: if conf_n == 0 {
+            0.0
+        } else {
+            conf_sum / conf_n as f32
+        },
         dropped_words: dropped,
     }
 }

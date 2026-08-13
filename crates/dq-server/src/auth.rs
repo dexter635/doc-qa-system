@@ -26,7 +26,12 @@ pub struct AuthService {
 }
 
 impl AuthService {
-    pub fn new(secret: &str, ttl_secs: u64, enabled: bool, anonymous_clearance: Classification) -> Self {
+    pub fn new(
+        secret: &str,
+        ttl_secs: u64,
+        enabled: bool,
+        anonymous_clearance: Classification,
+    ) -> Self {
         Self {
             encoding: EncodingKey::from_secret(secret.as_bytes()),
             decoding: DecodingKey::from_secret(secret.as_bytes()),
@@ -52,7 +57,9 @@ impl AuthService {
         let Ok(parsed) = PasswordHash::new(hash) else {
             return false;
         };
-        Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok()
+        Argon2::default()
+            .verify_password(password.as_bytes(), &parsed)
+            .is_ok()
     }
 
     pub fn issue_token(&self, user: &UserContext) -> Result<String> {
@@ -78,9 +85,12 @@ impl AuthService {
                 roles: vec!["user".into()],
             });
         }
-        let token = token.ok_or_else(|| DqError::Unauthorized("Oturum belirteci gerekli".into()))?;
-        let data = decode::<Claims>(token, &self.decoding, &Validation::default())
-            .map_err(|e| DqError::Unauthorized(format!("Gecersiz veya suresi dolmus belirteç: {e}")))?;
+        let token =
+            token.ok_or_else(|| DqError::Unauthorized("Oturum belirteci gerekli".into()))?;
+        let data =
+            decode::<Claims>(token, &self.decoding, &Validation::default()).map_err(|e| {
+                DqError::Unauthorized(format!("Gecersiz veya suresi dolmus belirteç: {e}"))
+            })?;
         Ok(UserContext {
             username: data.claims.sub,
             clearance: Classification::from_i64(data.claims.clearance),
@@ -102,7 +112,12 @@ mod tests {
 
     #[test]
     fn token_roundtrips_and_rejects_tampering() {
-        let auth = AuthService::new("0".repeat(32).as_str(), 3600, true, Classification::Restricted);
+        let auth = AuthService::new(
+            "0".repeat(32).as_str(),
+            3600,
+            true,
+            Classification::Restricted,
+        );
         let user = UserContext {
             username: "analist".into(),
             clearance: Classification::Secret,
@@ -120,7 +135,12 @@ mod tests {
 
     #[test]
     fn disabled_auth_returns_anonymous() {
-        let auth = AuthService::new("0".repeat(32).as_str(), 3600, false, Classification::Restricted);
+        let auth = AuthService::new(
+            "0".repeat(32).as_str(),
+            3600,
+            false,
+            Classification::Restricted,
+        );
         let user = auth.verify_token_or_anonymous(None).unwrap();
         assert_eq!(user.clearance, Classification::Restricted);
     }

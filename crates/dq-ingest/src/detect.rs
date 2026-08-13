@@ -78,7 +78,10 @@ mod tests {
     #[test]
     fn detects_types() {
         assert_eq!(sniff(b"%PDF-1.7\n....").unwrap(), FileKind::Pdf);
-        assert_eq!(sniff(&[0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0]).unwrap(), FileKind::Jpeg);
+        assert_eq!(
+            sniff(&[0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0]).unwrap(),
+            FileKind::Jpeg
+        );
         assert!(sniff(b"MZ\x90\x00\x03\x00\x00\x00").is_err());
     }
 

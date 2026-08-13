@@ -7,7 +7,7 @@ use crate::types::Classification;
 
 /// Uygulamanin tum ayarlari. `config/default.toml` dosyasindan okunur,
 /// `DQ_` onekli ortam degiskenleri ile ezilir.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AppConfig {
     pub server: ServerConfig,
@@ -20,6 +20,7 @@ pub struct AppConfig {
     pub llm: LlmConfig,
     pub guardrails: GuardrailConfig,
     pub auth: AuthConfig,
+    pub agent: AgentConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +35,13 @@ pub struct ServerConfig {
     /// Dakikada kullanici basina istek limiti.
     pub rate_limit_per_min: u32,
     pub request_timeout_secs: u64,
+    /// Doluysa, bu dizindeki statik dosyalar (derlenmis Leptos frontend'i)
+    /// `/api` disindaki tum yollarda servis edilir - tek konteyner/tek port
+    /// ile uretim dagitimi icin.
+    pub static_dir: Option<PathBuf>,
+    /// Kapanma sinyali alindiktan sonra devam eden isteklerin tamamlanmasi
+    /// icin beklenecek azami sure.
+    pub shutdown_grace_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -206,15 +214,60 @@ pub struct SeedUser {
     pub roles: Vec<String>,
 }
 
+/// Agentic RAG dongusu ayarlari.
+///
+/// Sistem varsayilan olarak tek-adimli calisir (klasik RAG); bu bolum
+/// LLM-yonlendirmeli coklu adimli davranisi (sorgu ayristirma, arac secimi,
+/// dusuk guvende otomatik yeniden deneme) devreye alir.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AgentConfig {
+    /// Ajan dongusu etkin mi? Kapaliysa klasik tek-adimli RAG'e duser.
+    pub enabled: bool,
+    /// Toplam RAG dongusu (arama+uretim+degerlendirme) sayisi ust siniri.
+    /// Maliyet/gecikme kontrolu icin sabit bir tavan sarttir.
+    pub max_steps: usize,
+    /// LLM'e sorguyu alt-sorgulara ayristirmasi ve belge kapsami onermesi icin
+    /// bir planlama cagrisi yapilsin mi?
+    pub enable_query_decomposition: bool,
+    /// Bir adimda yetersiz kaynak dogrulamasi (groundedness) olursa, sorguyu
+    /// yeniden formule edip ek bir adim daha denensin mi?
+    pub enable_self_correction: bool,
+    /// Planlayicinin onerdigi belge/kapsam filtresi (LLM'in "arac secimi")
+    /// kullanicininkiyle birlikte uygulansin mi?
+    pub enable_tool_doc_selection: bool,
+    /// Tek bir planlama/yeniden formulasyon cagrisinda LLM'den beklenen en
+    /// fazla alt sorgu sayisi (asiri parcalanmayi sinirlar).
+    pub max_sub_queries: usize,
+}
+
+impl Default for AgentConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_steps: 2,
+            enable_query_decomposition: true,
+            enable_self_correction: true,
+            enable_tool_doc_selection: true,
+            max_sub_queries: 3,
+        }
+    }
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             host: "127.0.0.1".into(),
             port: 8080,
-            allowed_origins: vec!["http://127.0.0.1:8081".into(), "http://localhost:8081".into()],
+            allowed_origins: vec![
+                "http://127.0.0.1:8081".into(),
+                "http://localhost:8081".into(),
+            ],
             max_body_bytes: 64 * 1024 * 1024,
             rate_limit_per_min: 60,
             request_timeout_secs: 300,
+            static_dir: None,
+            shutdown_grace_secs: 20,
         }
     }
 }
@@ -352,23 +405,6 @@ impl Default for AuthConfig {
     }
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            server: Default::default(),
-            storage: Default::default(),
-            ingest: Default::default(),
-            ocr: Default::default(),
-            embedding: Default::default(),
-            retrieval: Default::default(),
-            cache: Default::default(),
-            llm: Default::default(),
-            guardrails: Default::default(),
-            auth: Default::default(),
-        }
-    }
-}
-
 impl AppConfig {
     /// Dosyadan yukler; dosya yoksa varsayilanlari kullanir. Ardindan
     /// `DQ_` onekli ortam degiskenlerini uygular ve dogrular.
@@ -426,6 +462,15 @@ impl AppConfig {
         if let Some(v) = env_parse::<bool>("DQ_AUTH_ENABLED") {
             self.auth.enabled = v;
         }
+        if let Some(v) = env_parse::<bool>("DQ_AGENT_ENABLED") {
+            self.agent.enabled = v;
+        }
+        if let Some(v) = env_parse::<usize>("DQ_AGENT_MAX_STEPS") {
+            self.agent.max_steps = v;
+        }
+        if let Ok(v) = std::env::var("DQ_STATIC_DIR") {
+            self.server.static_dir = Some(PathBuf::from(v));
+        }
     }
 
     fn validate(&self) -> Result<()> {
@@ -444,10 +489,18 @@ impl AppConfig {
             ));
         }
         if !(0.0..=1.0).contains(&self.retrieval.mmr_lambda) {
-            return Err(DqError::Config("retrieval.mmr_lambda 0..1 araliginda olmali".into()));
+            return Err(DqError::Config(
+                "retrieval.mmr_lambda 0..1 araliginda olmali".into(),
+            ));
         }
         if self.retrieval.final_top_k == 0 {
             return Err(DqError::Config("retrieval.final_top_k sifir olamaz".into()));
+        }
+        if self.agent.enabled && self.agent.max_steps == 0 {
+            return Err(DqError::Config("agent.max_steps sifir olamaz".into()));
+        }
+        if self.agent.max_sub_queries == 0 {
+            return Err(DqError::Config("agent.max_sub_queries sifir olamaz".into()));
         }
         for p in &self.guardrails.denylist_patterns {
             regex::Regex::new(p)
@@ -469,8 +522,9 @@ impl AppConfig {
         }
         if let Some(parent) = self.storage.db_path.parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| DqError::Config(format!("{} olusturulamadi: {e}", parent.display())))?;
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    DqError::Config(format!("{} olusturulamadi: {e}", parent.display()))
+                })?;
             }
         }
         Ok(())

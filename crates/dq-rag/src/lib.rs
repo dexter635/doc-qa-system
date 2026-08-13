@@ -1,4 +1,4 @@
-﻿//! RAG orkestrasyonu.
+//! RAG orkestrasyonu.
 //!
 //! Akis: guardrail (girdi) -> onbellek -> hibrit getirme -> baglam olusturma
 //! -> yerel LLM (veya cikarimsal yedek) -> guardrail (cikti) -> onbellek yaz
@@ -10,15 +10,16 @@ use std::time::Instant;
 
 use dq_core::config::AppConfig;
 use dq_core::{
-    Answer, AnswerKind, Chunk, Classification, Document, DocumentStatus, DqError, Groundedness,
-    Lang, Result, ScoredChunk, UserContext,
+    Answer, AnswerKind, Classification, Document, DocumentStatus, DqError, Groundedness, Result,
+    UserContext,
 };
 use dq_guard::{InputGuard, OutputGuard};
-use dq_index::{AnswerCache, CacheHit, CacheKey, Embedder, Retriever, SearchOptions, Store};
+use dq_index::{AnswerCache, CacheHit, CacheKey, Embedder, Retriever, Store};
 use dq_ingest::Ingestor;
-use dq_llm::client::{ChatMessage, LlmClient};
-use dq_llm::{extractive, prompts};
+use dq_llm::client::LlmClient;
 use uuid::Uuid;
+
+mod agent;
 
 pub struct UploadOutcome {
     pub document: Document,
@@ -151,7 +152,8 @@ impl Pipeline {
 
         self.store
             .insert_chunks(&outcome.chunks, &vectors, &self.cfg.embedding.model)?;
-        self.retriever.add(&outcome.chunks, &vectors, &document.filename);
+        self.retriever
+            .add(&outcome.chunks, &vectors, &document.filename);
 
         document.status = DocumentStatus::Ready;
         document.updated_at = chrono::Utc::now();
@@ -175,7 +177,9 @@ impl Pipeline {
     pub fn get_document(&self, id: Uuid, clearance: Classification) -> Result<Option<Document>> {
         match self.store.get_document(id)? {
             Some(d) if d.classification.readable_by(clearance) => Ok(Some(d)),
-            Some(_) => Err(DqError::Forbidden("Bu belgeyi goruntuleme yetkiniz yok".into())),
+            Some(_) => Err(DqError::Forbidden(
+                "Bu belgeyi goruntuleme yetkiniz yok".into(),
+            )),
             None => Ok(None),
         }
     }
@@ -194,7 +198,12 @@ impl Pipeline {
     }
 
     /// Soru-cevap uc noktasi.
-    pub async fn ask(&self, raw_query: &str, user: &UserContext, doc_filter: Vec<Uuid>) -> Result<Answer> {
+    pub async fn ask(
+        &self,
+        raw_query: &str,
+        user: &UserContext,
+        doc_filter: Vec<Uuid>,
+    ) -> Result<Answer> {
         let started = Instant::now();
 
         let verdict = self.input_guard.check(raw_query)?;
@@ -218,6 +227,7 @@ impl Pipeline {
                 latency_ms: elapsed_ms(started),
                 model: self.llm.model(),
                 warnings: verdict.reasons,
+                trace: Vec::new(),
             });
         }
 
@@ -234,82 +244,59 @@ impl Pipeline {
             None
         };
 
-        if let Some(hit) = self.cache.get(&self.store, &cache_key, query_vec.as_deref())? {
+        if let Some(hit) = self
+            .cache
+            .get(&self.store, &cache_key, query_vec.as_deref())?
+        {
             let mut answer = match hit {
                 CacheHit::Exact(a) => a,
                 CacheHit::Semantic(a, _sim) => a,
             };
             answer.cached = true;
             answer.latency_ms = elapsed_ms(started);
-            self.store
-                .append_audit(&user.username, "ask", None, "cache_hit", serde_json::json!({"query": query}))?;
+            self.store.append_audit(
+                &user.username,
+                "ask",
+                None,
+                "cache_hit",
+                serde_json::json!({"query": query}),
+            )?;
             return Ok(answer);
         }
 
-        let search_opts = SearchOptions {
-            clearance: user.clearance,
-            doc_filter: doc_filter.clone(),
-            top_k: None,
-        };
-        let mut retrieved = self.retriever.search(&query, &search_opts)?;
-        if self.cfg.retrieval.neighbor_window > 0 && !retrieved.is_empty() {
-            retrieved = expand_with_neighbors(&self.retriever, retrieved, self.cfg.retrieval.neighbor_window);
-        }
-
-        if retrieved.is_empty() {
-            let answer = Answer {
-                query_id: dq_core::ids::new_id(),
-                kind: AnswerKind::Refused,
-                text: prompts::refusal(verdict.lang).to_string(),
-                citations: vec![],
-                groundedness: empty_groundedness(),
-                lang: verdict.lang,
-                classification: Classification::Unclassified,
-                cached: false,
-                latency_ms: elapsed_ms(started),
-                model: self.llm.model(),
-                warnings: vec!["Sorguyla eslesen belge bulunamadi.".into()],
-            };
-            self.store
-                .append_audit(&user.username, "ask", None, "no_context", serde_json::json!({"query": query}))?;
-            return Ok(answer);
-        }
-
-        let (context, included) = prompts::build_context(&retrieved, self.cfg.retrieval.context_token_budget);
-        let context_chunks: Vec<ScoredChunk> = retrieved[..included].to_vec();
-
-        let raw_text = if self.llm.healthy().await {
-            let messages = vec![
-                ChatMessage::system(prompts::system_prompt(verdict.lang)),
-                ChatMessage::user(prompts::user_prompt(&query, &context, verdict.lang)),
-            ];
-            match self.llm.chat(messages).await {
-                Ok(c) => c.text,
-                Err(e) => {
-                    tracing::warn!(error = %e, "LLM cagrisi basarisiz, cikarimsal yedege gecildi");
-                    fallback_text(&query, &context_chunks, verdict.lang, &self.cfg)
-                }
-            }
-        } else if self.cfg.llm.extractive_fallback {
-            fallback_text(&query, &context_chunks, verdict.lang, &self.cfg)
-        } else {
-            return Err(DqError::Llm("LLM servisi kullanilamiyor ve cikarimsal yedek kapali".into()));
-        };
-
-        let result = self.output_guard.evaluate(&raw_text, &context_chunks, verdict.lang);
-        let mut answer = dq_guard::into_answer(
-            dq_core::ids::new_id(),
-            result,
+        let outcome = agent::run(
+            &query,
             verdict.lang,
-            self.llm.model(),
-            false,
-            elapsed_ms(started),
-        );
+            &doc_filter,
+            user.clearance,
+            &self.cfg,
+            &self.store,
+            &self.retriever,
+            &self.output_guard,
+            self.llm.as_ref(),
+        )
+        .await?;
+
+        let mut answer = Answer {
+            query_id: dq_core::ids::new_id(),
+            kind: outcome.kind,
+            text: outcome.text,
+            citations: outcome.citations,
+            groundedness: outcome.groundedness,
+            lang: verdict.lang,
+            classification: outcome.classification,
+            cached: false,
+            latency_ms: elapsed_ms(started),
+            model: self.llm.model(),
+            warnings: outcome.warnings,
+            trace: outcome.trace,
+        };
         if verdict.injection_score > 0.0 {
             answer.warnings.extend(verdict.reasons.clone());
         }
 
-        self.cache.put(&self.store, &cache_key, &answer, query_vec.as_deref())?;
+        self.cache
+            .put(&self.store, &cache_key, &answer, query_vec.as_deref())?;
         self.store.append_audit(
             &user.username,
             "ask",
@@ -338,43 +325,3 @@ fn empty_groundedness() -> Groundedness {
 fn elapsed_ms(started: Instant) -> u64 {
     started.elapsed().as_millis() as u64
 }
-
-fn fallback_text(query: &str, chunks: &[ScoredChunk], lang: Lang, cfg: &AppConfig) -> String {
-    extractive::answer(query, chunks, lang, cfg.retrieval.final_top_k.min(6)).text
-}
-
-/// Secilen parcalarin belge icindeki komsularini metne katar; boylece bir
-/// cumlenin ortasindan kesilmis chunk'lar LLM'e daha butun bir baglamla
-/// gider. Sira, sayi ve skor degismedigi icin kaynak numaralari ([n])
-/// etkilenmez.
-fn expand_with_neighbors(retriever: &Retriever, chunks: Vec<ScoredChunk>, window: usize) -> Vec<ScoredChunk> {
-    chunks
-        .into_iter()
-        .map(|mut sc| {
-            let mut neighbors: Vec<Chunk> = retriever.neighbors(&sc.chunk, window);
-            if neighbors.is_empty() {
-                return sc;
-            }
-            neighbors.sort_by_key(|c| c.ordinal);
-            let mut text = String::new();
-            let mut min_page = sc.chunk.page_from;
-            let mut max_page = sc.chunk.page_to;
-            for n in neighbors.iter().filter(|n| n.ordinal < sc.chunk.ordinal) {
-                text.push_str(&n.text);
-                text.push('\n');
-                min_page = min_page.min(n.page_from);
-            }
-            text.push_str(&sc.chunk.text);
-            for n in neighbors.iter().filter(|n| n.ordinal > sc.chunk.ordinal) {
-                text.push('\n');
-                text.push_str(&n.text);
-                max_page = max_page.max(n.page_to);
-            }
-            sc.chunk.text = text;
-            sc.chunk.page_from = min_page;
-            sc.chunk.page_to = max_page;
-            sc
-        })
-        .collect()
-}
-

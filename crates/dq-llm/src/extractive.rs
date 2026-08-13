@@ -16,7 +16,12 @@ pub struct ExtractiveAnswer {
 }
 
 /// Sorgu terimleriyle en cok ortusen cumleleri secer.
-pub fn answer(question: &str, chunks: &[ScoredChunk], lang: Lang, max_sentences: usize) -> ExtractiveAnswer {
+pub fn answer(
+    question: &str,
+    chunks: &[ScoredChunk],
+    lang: Lang,
+    max_sentences: usize,
+) -> ExtractiveAnswer {
     let q_terms: HashSet<String> = tokenize_for_search(question)
         .into_iter()
         .filter(|t| t.chars().count() >= 3)
@@ -115,7 +120,9 @@ mod tests {
 
     #[test]
     fn refuses_when_nothing_matches() {
-        let chunks = vec![sc("Bu bölümde personel izin süreleri anlatılır ve tablolar verilir.")];
+        let chunks = vec![sc(
+            "Bu bölümde personel izin süreleri anlatılır ve tablolar verilir.",
+        )];
         let a = answer("uçağın azami irtifası", &chunks, Lang::Tr, 3);
         assert!(a.used_markers.is_empty());
     }

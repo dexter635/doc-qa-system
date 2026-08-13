@@ -20,7 +20,8 @@ impl From<DqError> for ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let status = StatusCode::from_u16(self.0.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let status =
+            StatusCode::from_u16(self.0.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         if status.is_server_error() {
             tracing::error!(error = %self.0, "sunucu hatasi");
         }

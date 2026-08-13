@@ -50,16 +50,16 @@ pub struct PiiMatch {
 }
 
 static TCKN_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b[1-9]\d{10}\b").unwrap());
-static IBAN_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\b[A-Z]{2}\d{2}[ ]?(?:[A-Z0-9]{4}[ ]?){2,7}[A-Z0-9]{1,4}\b").unwrap());
+static IBAN_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\b[A-Z]{2}\d{2}[ ]?(?:[A-Z0-9]{4}[ ]?){2,7}[A-Z0-9]{1,4}\b").unwrap()
+});
 static CARD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(?:\d{4}[ -]?){3}\d{4}\b").unwrap());
 static EMAIL_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b").unwrap());
 static PHONE_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?:\+90|0)?[ ]?\(?5\d{2}\)?[ ]?\d{3}[ -]?\d{2}[ -]?\d{2}\b").unwrap()
 });
-static IP_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").unwrap());
+static IP_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").unwrap());
 
 /// TC Kimlik Numarasi saglama algoritmasi.
 pub fn is_valid_tckn(s: &str) -> bool {

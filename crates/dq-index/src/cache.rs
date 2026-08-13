@@ -34,7 +34,12 @@ impl CacheKey {
     pub fn scope(&self) -> String {
         let mut docs: Vec<String> = self.doc_filter.iter().map(|d| d.to_string()).collect();
         docs.sort();
-        format!("{}|{}|{}", self.model, self.clearance as i64, docs.join(","))
+        format!(
+            "{}|{}|{}",
+            self.model,
+            self.clearance as i64,
+            docs.join(",")
+        )
     }
 
     pub fn hash(&self) -> String {
@@ -196,11 +201,7 @@ impl AnswerCache {
         let mut mem = self.mem.lock();
         if mem.len() as u64 >= self.cfg.memory_capacity {
             // En eski girdiyi dusur (basit LRU yaklasimı).
-            if let Some(oldest) = mem
-                .iter()
-                .min_by_key(|(_, v)| v.at)
-                .map(|(k, _)| k.clone())
-            {
+            if let Some(oldest) = mem.iter().min_by_key(|(_, v)| v.at).map(|(k, _)| k.clone()) {
                 mem.remove(&oldest);
             }
         }

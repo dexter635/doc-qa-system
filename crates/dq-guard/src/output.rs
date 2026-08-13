@@ -179,7 +179,11 @@ impl OutputGuard {
             if !kinds.is_empty() {
                 warnings.push(format!(
                     "Ciktida kisisel veri maskelendi ({}).",
-                    kinds.iter().map(|k| k.label()).collect::<Vec<_>>().join(", ")
+                    kinds
+                        .iter()
+                        .map(|k| k.label())
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ));
                 text = redacted;
             }
@@ -187,13 +191,20 @@ impl OutputGuard {
 
         if self.cfg.enforce_language_match {
             let answer_lang = detect_lang(&text);
-            if query_lang != Lang::Unknown && answer_lang != Lang::Unknown && answer_lang != query_lang {
+            if query_lang != Lang::Unknown
+                && answer_lang != Lang::Unknown
+                && answer_lang != query_lang
+            {
                 warnings.push("Cevap dili soru diliyle tam eslesmeyebilir.".into());
             }
         }
 
         let classification = if self.cfg.stamp_classification {
-            citations.iter().map(|c| context_chunk_classification(context_chunks, c.chunk_id)).max().unwrap_or(max_classification)
+            citations
+                .iter()
+                .map(|c| context_chunk_classification(context_chunks, c.chunk_id))
+                .max()
+                .unwrap_or(max_classification)
         } else {
             Classification::Unclassified
         };
@@ -251,7 +262,14 @@ fn dq_llm_refusal(lang: Lang) -> String {
 }
 
 /// Bir `Answer` degerini bu sonuca gore olusturur (server katmani icin yardimci).
-pub fn into_answer(query_id: Uuid, result: OutputResult, lang: Lang, model: String, cached: bool, latency_ms: u64) -> Answer {
+pub fn into_answer(
+    query_id: Uuid,
+    result: OutputResult,
+    lang: Lang,
+    model: String,
+    cached: bool,
+    latency_ms: u64,
+) -> Answer {
     Answer {
         query_id,
         kind: result.kind,
@@ -264,6 +282,7 @@ pub fn into_answer(query_id: Uuid, result: OutputResult, lang: Lang, model: Stri
         latency_ms,
         model,
         warnings: result.warnings,
+        trace: Vec::new(),
     }
 }
 

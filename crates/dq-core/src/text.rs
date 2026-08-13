@@ -72,7 +72,8 @@ pub fn fold_diacritics(s: &str) -> String {
 
 static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[ \t\x0b\x0c\r]+").unwrap());
 static MULTI_NL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\n{3,}").unwrap());
-static HYPHEN_BREAK_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\p{L})[-\u{00ad}]\n(\p{Ll})").unwrap());
+static HYPHEN_BREAK_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(\p{L})[-\u{00ad}]\n(\p{Ll})").unwrap());
 static SOFT_WRAP_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\p{Ll},?)\n(\p{Ll})").unwrap());
 
 /// PDF/OCR ciktisini temizler: satir sonu tirelerini birlestirir, yumusak
@@ -84,7 +85,12 @@ pub fn clean_extracted_text(raw: &str) -> String {
     let s = SOFT_WRAP_RE.replace_all(&s, "$1 $2").into_owned();
     let s = WS_RE.replace_all(&s, " ").into_owned();
     let s = MULTI_NL_RE.replace_all(&s, "\n\n").into_owned();
-    s.lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n").trim().to_string()
+    s.lines()
+        .map(|l| l.trim_end())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
 }
 
 /// Yaklasik token sayisi. Gercek tokenizer yerine, hem TR hem EN icin
@@ -119,8 +125,7 @@ pub fn split_sentences(text: &str) -> Vec<String> {
         buf.push(c);
 
         let is_terminator = matches!(c, '.' | '!' | '?' | '…');
-        let is_para_break = c == '\n'
-            && chars.get(i + 1).is_some_and(|n| *n == '\n');
+        let is_para_break = c == '\n' && chars.get(i + 1).is_some_and(|n| *n == '\n');
 
         if is_para_break {
             push_sentence(&mut out, &mut buf);
@@ -141,7 +146,10 @@ pub fn split_sentences(text: &str) -> Vec<String> {
                 .find(|n| !n.is_whitespace())
                 .is_none_or(|n| n.is_uppercase() || n.is_ascii_digit() || *n == '-' || *n == '•');
 
-            if !(prev_digit && next_digit) && after_ws && starts_new && !ends_with_abbreviation(&buf)
+            if !(prev_digit && next_digit)
+                && after_ws
+                && starts_new
+                && !ends_with_abbreviation(&buf)
             {
                 push_sentence(&mut out, &mut buf);
                 i += 1;
@@ -188,8 +196,29 @@ fn ends_with_abbreviation(buf: &str) -> bool {
 }
 
 const TR_STOPWORDS: &[&str] = &[
-    "ve", "ile", "bir", "bu", "için", "olarak", "daha", "gibi", "olan", "veya", "her", "ancak",
-    "ise", "de", "da", "ki", "en", "çok", "sonra", "kadar", "tarafından", "üzere", "göre",
+    "ve",
+    "ile",
+    "bir",
+    "bu",
+    "için",
+    "olarak",
+    "daha",
+    "gibi",
+    "olan",
+    "veya",
+    "her",
+    "ancak",
+    "ise",
+    "de",
+    "da",
+    "ki",
+    "en",
+    "çok",
+    "sonra",
+    "kadar",
+    "tarafından",
+    "üzere",
+    "göre",
 ];
 const EN_STOPWORDS: &[&str] = &[
     "the", "and", "for", "with", "that", "this", "from", "are", "was", "have", "has", "not",
