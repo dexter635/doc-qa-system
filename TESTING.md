@@ -8,17 +8,17 @@ Bu proje, uçtan uca **birim/entegrasyon test paketi** ile doğrulandı:
 cargo test --workspace --exclude dq-web
 ```
 
-**Sonuç: 60/60 test yeşil**, 7 backend crate'i üzerinde:
+**Sonuç: 67/67 test yeşil**, 7 backend crate'i üzerinde:
 
 | Crate | Test sayısı | Kapsam |
 |---|---|---|
 | `dq-core` | 12 | Config doğrulama, Türkçe metin normalizasyonu, dil tespiti, cümle bölme, n-gram containment |
 | `dq-ingest` | 8 | Dosya türü tespiti (magic bytes), path-traversal koruması, Otsu binarizasyon, boş sayfa tespiti, Tesseract TSV ayrıştırma, başlık tespiti, chunk sayfa aralığı takibi |
 | `dq-index` | 16 | BM25 tam terim eşleşmesi, filtre uygulama, embedding determinizmi, önbellek anahtarlama (case/noktalama/yetki/belge kapsamı), audit zinciri kurcalama tespiti, yetki filtreli belge listesi, RRF füzyonu, MMR çeşitlendirme, vektör arama |
-| `dq-llm` | 6 | Bağlam bütçesi, "en az bir kaynak her zaman dahil" istisnası, prompt enjeksiyon etiketlerinin zararsızlaştırılması, alıntı-tabanlı yedek cevap üretimi |
+| `dq-llm` | 11 | Bağlam bütçesi, "en az bir kaynak her zaman dahil" istisnası, prompt enjeksiyon etiketlerinin zararsızlaştırılması, alıntı-tabanlı yedek cevap üretimi, metin içinden JSON çıkarma (dengeli `{...}` bloğu, kod bloğuna/nesire sarılı JSON, iç içe parantez, bozuk/başarısız girişler) |
 | `dq-guard` | 15 | Prompt injection tespiti (TR+EN), sınırlayıcı (delimiter) enjeksiyonu, aşırı uzun sorgu reddi, TCKN/IBAN/Luhn/kredi kartı doğrulama+maskeleme, groundedness geçme/reddetme, düşük kaynak skorunda zorunlu red, PII maskeleme |
 | `dq-server` | 3 | JWT üretme/doğrulama + kurcalama tespiti, auth kapalıyken anonim kullanıcı, parola hash round-trip |
-| `dq-rag` | 0 (entegrasyon) | Saf orkestrasyon; alt katmanlar zaten test edilmiş olduğundan ayrı birim testi eklenmedi |
+| `dq-rag` | 2 (entegrasyon) | LLM erişilemediğinde extractive yedeğe zarif düşüş + ajan izi (Plan/Retrieve/Generate); ilk cevap grounded değilse self-correction yeniden denemesi ve 2. critique adımı |
 
 Frontend (`dq-web`) `trunk build` ile derleme doğrulaması yapıldı (tip
 güvenliği + WASM paketleme); tarayıcıda manuel gezinme testi bu ortamda

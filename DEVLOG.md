@@ -148,3 +148,73 @@ regex'leri + groundedness), %15 server (auth/audit/rota), %15 frontend
 - Gerçek bir Tesseract kurulumuyla taranmış Türkçe teknik doküman üzerinde
   uçtan uca OCR kalitesi ölçümü zaman kısıtı nedeniyle yapılamadı; bu
   [TESTING.md](TESTING.md)'de açıkça bir sınırlama olarak belirtildi.
+
+## 8. Agentic RAG döngüsü eklentisi
+
+İlk sürüm tek adımlı (klasik) RAG olarak teslim edilmişti: tek retrieve →
+tek generate → output guardrail. Soru-cevap kalitesini artırmak ve "belgede
+olmayan bilgi üretmeme" gereksinimini daha güçlü karşılamak için, LLM-koordineli
+çok adımlı bir ajana genişlettik:
+
+- **Plan**: LLM sorguyu alt-sorgulara böler ve (belirtilmişse) hangi belgenin
+  taranması gerektiğini önerir. LLM yoksa veya JSON ayrıştırılamazsa sezgisel
+  yedeğe (orijinal sorgu, filtresiz) düşer — bu adım sistemi asla durdurmaz.
+- **Retrieve**: Her alt-sorgu için hibrit arama çalışır ve sonuçlar chunk
+  kimliğine göre birleştirilir; en yüksek per-sorgu skoru korunur.
+- **Generate**: Bağlamdan LLM (veya extractive yedek) cevap üretir.
+- **Critique**: Output guardrail'i source-grounded doğrular. Yetersizse →
+  sorgu yeniden formüle edilip döngü tekrarlanır.
+
+**Karar gerekçesi**: Savunma sanayii, serbest dolaşan çok adımlı ajanı
+kabul etmez. Bu yüzden:
+- `agent.max_steps` sabit bir tavan (varsayılan 2), maliyet/gecikmeyi
+  öngörülebilir tutar.
+- `enable_query_decomposition`, `enable_self_correction`,
+  `enable_tool_doc_selection` bayraklarıyla her davranış kapatılabilir;
+  kapalıyken sistem klasik tek-adımlı RAG'e döner.
+- Her adım `Answer.trace` içinde (`Plan/Retrieve/Generate/Critique` türleriyle)
+  toplanır; kullanıcı arayüzünde "ajan adımları" olarak, denetim kaydında
+  karar gerekçesi olarak kullanılır.
+
+Bu katman `dq-rag/src/agent.rs` içindedir ve iki entegrasyon testi içerir
+(LLM yokken extractive yedeğe zarif düşüş; ilk cevap grounded değilse
+self-correction yeniden denemesi). JSON çıktısı `dq-llm::json` ile çıkarılır
+(bkz. bölüm 9).
+
+## 9. Yerel modellerde yapısal JSON çıktısı: `dq-llm::json`
+
+Küçük parametreli yerel modeller (7B mertebesi) "structured output" /
+function-calling'i her zaman düzgün desteklemez; çıktıyı kod bloğuna sarabilir,
+önüne/sonuna açıklama ekleyebilir. Bu yüzden planlama/self-correction
+çağrılarından gelen metinden, ilk dengeli `{...}` bloğunu çekip ayıklayan bir
+yardımcı yazıldı (`extract_json_object`). Ayrıştırma başarısız olursa çağıran
+taraf sezgisel yedeğe döner; model çıktısı hiçbir yerde panic'e ya da
+istisnaya yol açmaz. Bu katman 5 birim testi ile doğrulanır.
+
+## 10. Üretim/CI derleme — ONNX Runtime linker hatası
+
+CI'daki Docker build, backend (`dq-server`) bağlama aşamasında duruyordu:
+
+```
+rust-lld: undefined symbol: __isoc23_strtoll / __isoc23_strtoull / __isoc23_strtol
+rust-lld: undefined symbol: std::__cxx11::basic_string<...>::_M_replace_cold
+```
+
+Kök neden: `fastembed`/`ort` tarafından indirilen **önceden derlenmiş
+ONNX Runtime** ikilisi, daha yeni glibc (2.38+) ve GCC 13 libstdc++ sembolleri
+(`__isoc23_strto*`, `_M_replace_cold`) kullanıyor. Ancak build imajları
+**Debian 12 bookworm** tabanlıydı (glibc 2.36 + GCC 12); istendiği için bu
+semboller sistemde yoktu ve bağlama başarısız oluyordu.
+
+Çözüm: tüm imajları **Debian 13 (trixie)**'ye yükseltmek
+(`rust:1-slim-trixie` ve `debian:trixie-slim`); trixie glibc 2.41 + GCC 14
+içerir. Ayrıca trixie'de `libstdc++-12-dev` paketi bulunmadığından
+`build-essential` kapsamındaki `libstdc++-14-dev`'e geçildi. Runtime imajı da
+aynı glibc sürümünü paylaşması için trixie'ye çekildi — derleyici ve çalıştırıcı
+aynı libc üzerinde kaldığından "önce derle, sonra çatla" sınıfındaki gizli uyum
+sorunları baştan engellenir.
+
+**Ders**: Rust'ın C/C++ araç zinciri kadar, hazır (prebuilt) native ikililerin
+(ort/fastembed gibi) **onların derlendiği glibc/libstdc++'ını** da hesaba
+katmak gerekir; "slim" (en güncel olmayan) aylık-etiketli Debian imajları bu
+bağlamda sessiz bir tuzak olabilir.

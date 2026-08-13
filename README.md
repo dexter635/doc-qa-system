@@ -51,8 +51,8 @@ flowchart LR
 | `dq-ingest` | PDF metin/görüntü çıkarımı (`pdf-extract` + `lopdf`), OCR (Tesseract), yapıya duyarlı chunking |
 | `dq-index` | Embedding (fastembed/ONNX), SQLite depolama, BM25 + dense hibrit arama (RRF), MMR çeşitlendirme, çok katmanlı cevap önbelleği |
 | `dq-guard` | Girdi guardrail (prompt injection, PII), çıktı guardrail (groundedness/kaynak doğrulama, PII maskeleme, gizlilik damgalama) |
-| `dq-llm` | OpenAI-uyumlu yerel LLM istemcisi, prompt şablonları, LLM'siz alıntı-tabanlı (extractive) yedek |
-| `dq-rag` | Uçtan uca orkestrasyon (ingest → guard → cache → retrieve → LLM → guard → cache → audit) |
+| `dq-llm` | OpenAI-uyumlu yerel LLM istemcisi, prompt şablonları, LLM'siz alıntı-tabanlı (extractive) yedek, zayıf model çıktısından JSON çıkarma (`dq-llm::json`) |
+| `dq-rag` | Uçtan uca orkestrasyon; **agentik RAG döngüsü** (planlama/sorgu ayırıştırma → çoklu alt-sorgu hibrit arama → üretim → groundedness eleştirisi → gerekirse self-correction, `agent.max_steps` tavu ile) |
 | `dq-server` | axum HTTP API, JWT + Argon2 kimlik doğrulama, hız sınırlama, CORS, hash-zincirli denetim kaydı |
 | `dq-web` | Leptos (Rust→WASM) tek sayfa arayüzü: giriş, belge yükleme/listeleme, soru-cevap, denetim kaydı |
 
@@ -148,14 +148,16 @@ yapın ve `models/embeddings` dizinini önceden doldurun.
 
 | Uç nokta | Açıklama |
 |---|---|
+| `GET /api/live` | Canlılık (liveness) yoklaması — Docker/K8s HEALTHCHECK |
+| `GET /api/health` | Servis durumu, OCR motoru, embedding/LLM modeli, önbellek istatistikleri |
+| `GET /metrics` | Prometheus metrikleri (istek sayacı, gecikme, `dq_ask_*`, `dq_ingest_*`) |
 | `POST /api/auth/login` | `{username, password}` → JWT |
 | `POST /api/documents` | Multipart: `file`, `classification` — belge yükle |
 | `GET /api/documents` | Kullanıcının yetkisindeki belgeleri listele |
 | `DELETE /api/documents/{id}` | Belgeyi sil (yalnızca `admin` rolü) |
-| `POST /api/ask` | `{query, doc_ids?}` → `Answer` (kaynaklar, groundedness, uyarılar) |
+| `POST /api/ask` | `{query, doc_ids?}` → `Answer` (kaynaklar, groundedness, ajan izi `trace`, uyarılar) |
 | `GET /api/audit` | Denetim kaydı (yalnızca `admin`) |
 | `GET /api/audit/verify` | Denetim zinciri bütünlük kontrolü |
-| `GET /api/health` | Servis durumu, OCR motoru, embedding/LLM modeli, önbellek istatistikleri |
 
 ## 5. Test
 
@@ -163,9 +165,11 @@ yapın ve `models/embeddings` dizinini önceden doldurun.
 cargo test --workspace --exclude dq-web
 ```
 
-60 birim testi backend'in tamamını kapsar (metin normalizasyonu, chunking,
-BM25, hibrit füzyon, guardrail'ler, JWT, audit zinciri doğrulama vb.).
-Ayrıntılar için [TESTING.md](TESTING.md).
+67 birim/entegrasyon testi backend'in tamamını kapsar (metin normalizasyonu,
+chunking, BM25, hibrit füzyon, guardrail'ler, JWT, audit zinciri doğrulama,
+agentic RAG döngüsü — LLM yokken extractive yedeğe düşüş ve self-correction
+yeniden denemesi — ve JSON çıkarma katmanı). Ayrıntılar için
+[TESTING.md](TESTING.md).
 
 ## 6. Bilinen sınırlamalar
 
