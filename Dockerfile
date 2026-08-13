@@ -13,7 +13,8 @@ RUN trunk build --release
 
 # --- Aşama 2: backend (dq-server) derlemesi -------------------------------
 FROM rust:1-slim-bookworm AS backend-builder
-RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config libssl-dev build-essential clang \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
