@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
 # --- Aşama 1: frontend (Leptos/WASM) derlemesi ---------------------------
-FROM rust:1-slim-bookworm AS frontend-builder
+# trixie (Debian 13): fastembed/ort'un onceden derlenmis ONNX Runtime'i
+# glibc 2.38+ ve GCC 13 libstdc++ sembolleri (__isoc23_strto*, _M_replace_cold)
+# istedigi icin bookworm (glibc 2.36 / GCC 12) bu baglama islemini yapamaz.
+FROM rust:1-slim-trixie AS frontend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates pkg-config \
     && rm -rf /var/lib/apt/lists/*
 RUN rustup target add wasm32-unknown-unknown \
@@ -12,9 +15,9 @@ WORKDIR /src/crates/dq-web
 RUN trunk build --release
 
 # --- Aşama 2: backend (dq-server) derlemesi -------------------------------
-FROM rust:1-slim-bookworm AS backend-builder
+FROM rust:1-slim-trixie AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        pkg-config libssl-dev build-essential clang libstdc++-12-dev \
+        pkg-config libssl-dev build-essential clang libstdc++-14-dev \
     && rm -rf /var/lib/apt/lists/*
 ENV RUSTFLAGS="-C link-arg=-Wl,--no-as-needed -C link-arg=-L/usr/lib/x86_64-linux-gnu -C link-arg=-lstdc++ -C link-arg=-lm -C link-arg=-lc"
 ENV CXXFLAGS="-stdlib=libstdc++"
@@ -33,7 +36,9 @@ COPY crates/dq-server ./crates/dq-server
 RUN cargo build --release -p dq-server
 
 # --- Aşama 3: calisma zamani imaji -----------------------------------------
-FROM debian:bookworm-slim AS runtime
+# Calisma zamani da build'in urettigi binary'nin glibc'ini karsilayabilmek
+# icin trixie olmali (gard: derliyici ve calistirici ayni libc surumu).
+FROM debian:trixie-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/* \
