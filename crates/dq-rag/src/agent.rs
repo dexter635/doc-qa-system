@@ -35,7 +35,6 @@ use uuid::Uuid;
 
 use crate::empty_groundedness;
 
-#[allow(dead_code)]
 pub struct AgentOutcome {
     pub text: String,
     pub kind: AnswerKind,
@@ -44,19 +43,6 @@ pub struct AgentOutcome {
     pub classification: Classification,
     pub warnings: Vec<String>,
     pub trace: Vec<AgentStep>,
-    #[allow(dead_code)]
-    pub metrics: RagMetrics,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct RagMetrics {
-    pub retrieval_ms: u64,
-    pub generation_ms: u64,
-    pub critique_ms: u64,
-    pub total_chunks_retrieved: usize,
-    pub unique_docs: usize,
-    pub reranked: bool,
-    pub used_original_query: bool,
 }
 
 struct Plan {
@@ -101,7 +87,6 @@ pub async fn run(
     let mut trace: Vec<AgentStep> = Vec::new();
     let mut current_query = query.to_string();
     let mut last: Option<(String, Vec<ScoredChunk>)> = None;
-    let mut metrics = RagMetrics::default();
 
     for step in 1..=max_steps {
         let mut plan = if acfg.enabled && acfg.enable_query_decomposition {
@@ -158,7 +143,6 @@ pub async fn run(
             clearance,
             retriever,
             cfg,
-            &mut metrics,
         )?;
         if cfg.retrieval.neighbor_window > 0 && !merged.is_empty() {
             merged = expand_with_neighbors(retriever, merged, cfg.retrieval.neighbor_window);
@@ -175,9 +159,8 @@ pub async fn run(
             });
             merged.truncate(cfg.retrieval.final_top_k.max(10));
         }
-        metrics.retrieval_ms = retrieve_started.elapsed().as_millis() as u64;
-        metrics.total_chunks_retrieved = merged.len();
-        metrics.unique_docs = merged
+        let retrieval_ms = retrieve_started.elapsed().as_millis() as u64;
+        let unique_docs = merged
             .iter()
             .map(|s| s.chunk.doc_id)
             .collect::<HashSet<_>>()
@@ -189,14 +172,14 @@ pub async fn run(
                 "{} alt-sorgudan {} benzersiz kaynak bulundu ({} ms).",
                 plan.sub_queries.len(),
                 merged.len(),
-                metrics.retrieval_ms
+                retrieval_ms
             ),
             detail: serde_json::json!({
                 "sub_queries": plan.sub_queries,
                 "expanded_queries": plan.expanded_queries,
                 "doc_filter": effective_filter,
                 "result_count": merged.len(),
-                "unique_docs": metrics.unique_docs,
+                "unique_docs": unique_docs,
             }),
         });
 
@@ -229,7 +212,7 @@ pub async fn run(
                 "LLM servisi kullanilamiyor ve cikarimsal yedek kapali".into(),
             ));
         };
-        metrics.generation_ms = gen_started.elapsed().as_millis() as u64;
+        let generation_ms = gen_started.elapsed().as_millis() as u64;
         trace.push(AgentStep {
             step,
             kind: AgentStepKind::Generate,
@@ -240,7 +223,7 @@ pub async fn run(
                 } else {
                     "cikarimsal yedek".to_string()
                 },
-                metrics.generation_ms
+                generation_ms
             ),
             detail: serde_json::json!({"chars": raw_text.chars().count(), "model": if llm_available { llm.model() } else { "extractive".into() }}),
         });
@@ -248,7 +231,7 @@ pub async fn run(
         let critique_started = std::time::Instant::now();
         let result = output_guard.evaluate(&raw_text, &context_chunks, lang);
         let passed = result.kind == AnswerKind::Grounded;
-        metrics.critique_ms = critique_started.elapsed().as_millis() as u64;
+        let critique_ms = critique_started.elapsed().as_millis() as u64;
         trace.push(AgentStep {
             step,
             kind: AgentStepKind::Critique,
@@ -262,7 +245,7 @@ pub async fn run(
                 "support_ratio": result.groundedness.support_ratio,
                 "top_score": result.groundedness.top_score,
                 "passed": passed,
-                "critique_ms": metrics.critique_ms,
+                "critique_ms": critique_ms,
             }),
         });
 
@@ -275,7 +258,6 @@ pub async fn run(
                 classification: result.classification,
                 warnings: result.warnings,
                 trace,
-                metrics,
             });
         }
 
@@ -296,7 +278,6 @@ pub async fn run(
         classification: Classification::Unclassified,
         warnings: vec!["Sorguyla eslesen belge bulunamadi.".into()],
         trace,
-        metrics,
     })
 }
 
@@ -532,7 +513,6 @@ fn retrieve_merged(
     clearance: Classification,
     retriever: &Retriever,
     cfg: &AppConfig,
-    metrics: &mut RagMetrics,
 ) -> Result<Vec<ScoredChunk>> {
     let mut best: HashMap<Uuid, ScoredChunk> = HashMap::new();
     let mut all_queries = sub_queries.to_vec();
@@ -571,10 +551,6 @@ fn retrieve_merged(
         .min(20)
         .max(cfg.retrieval.final_top_k);
     merged.truncate(cap);
-
-    metrics.reranked = retriever.has_reranker();
-    metrics.used_original_query =
-        sub_queries.contains(&all_queries.first().cloned().unwrap_or_default());
 
     Ok(merged)
 }
