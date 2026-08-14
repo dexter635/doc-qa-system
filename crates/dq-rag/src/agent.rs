@@ -46,6 +46,7 @@ pub struct AgentOutcome {
     pub metrics: RagMetrics,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub struct RagMetrics {
     pub retrieval_ms: u64,
