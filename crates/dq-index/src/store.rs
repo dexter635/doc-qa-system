@@ -10,7 +10,8 @@ use std::path::Path;
 use chrono::{DateTime, Utc};
 use dq_core::ids::audit_hash;
 use dq_core::{
-    AuditEvent, Chunk, ChunkType, Classification, Document, DocumentStatus, DqError, Lang, Result, UserContext,
+    AuditEvent, Chunk, ChunkType, Classification, Document, DocumentStatus, DqError, Lang, Result,
+    UserContext,
 };
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};

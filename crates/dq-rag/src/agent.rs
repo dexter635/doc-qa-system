@@ -571,7 +571,8 @@ fn retrieve_merged(
     merged.truncate(cap);
 
     metrics.reranked = retriever.has_reranker();
-    metrics.used_original_query = sub_queries.contains(&all_queries.first().cloned().unwrap_or_default());
+    metrics.used_original_query =
+        sub_queries.contains(&all_queries.first().cloned().unwrap_or_default());
 
     Ok(merged)
 }
