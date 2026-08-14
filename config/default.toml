@@ -76,7 +76,7 @@ api_key = ""
 temperature = 0.1
 top_p = 0.9
 max_tokens = 900
-timeout_secs = 120
+timeout_secs = 600
 extractive_fallback = true
 probe_on_start = true
 
