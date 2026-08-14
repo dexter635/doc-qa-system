@@ -35,6 +35,7 @@ use uuid::Uuid;
 
 use crate::empty_groundedness;
 
+#[allow(dead_code)]
 pub struct AgentOutcome {
     pub text: String,
     pub kind: AnswerKind,
