@@ -35,7 +35,6 @@ use uuid::Uuid;
 
 use crate::empty_groundedness;
 
-#[allow(dead_code)]
 pub struct AgentOutcome {
     pub text: String,
     pub kind: AnswerKind,
@@ -44,6 +43,7 @@ pub struct AgentOutcome {
     pub classification: Classification,
     pub warnings: Vec<String>,
     pub trace: Vec<AgentStep>,
+    #[allow(dead_code)]
     pub metrics: RagMetrics,
 }
 
