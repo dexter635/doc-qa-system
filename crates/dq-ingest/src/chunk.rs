@@ -153,6 +153,8 @@ pub fn build_chunks(
                     confidence,
                     heading_path,
                     text,
+                    parent_id: None,
+                    chunk_type: dq_core::ChunkType::Standalone,
                 });
                 pending_overlap = tail_sentences(&buf, cfg.chunk_overlap_tokens);
                 buf.clear();
@@ -265,6 +267,8 @@ pub fn build_chunks(
                 confidence,
                 heading_path,
                 text,
+                parent_id: None,
+                chunk_type: dq_core::ChunkType::Standalone,
             });
         }
     }

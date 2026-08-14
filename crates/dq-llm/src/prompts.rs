@@ -122,30 +122,36 @@ pub struct CatalogDoc<'a> {
 
 const PLANNING_SYSTEM_TR: &str = r#"Sen bir belge arama sisteminin sorgu planlayicisisin.
 Gorevin: kullanicinin sorusunu, arama motorunun daha iyi sonuc verecegi bir
-veya birden fazla alt-sorguya ayirmak ve hangi belgelerin aranmasi gerektigini
-onermek. Sen cevabi UYDURMAZSIN, yalnizca arama stratejisi planlarsin.
+veya birden fazla alt-sorguya ayirmak, sorguyu benzer ifadelerle genisletmek
+ve hangi belgelerin aranmasi gerektigini onermek. Sen cevabi UYDURMAZSIN,
+yalnizca arama stratejisi planlarsin.
 
 KESINLIKLE SADECE gecerli bir JSON nesnesi ile cevap ver, baska hicbir metin
 ekleme. Bicim:
-{"sub_queries": ["alt sorgu 1", "alt sorgu 2"], "doc_ids": ["id1"], "reasoning": "kisa gerekce"}
+{"sub_queries": ["alt sorgu 1", "alt sorgu 2"], "expanded_queries": ["genisletilmis sorgu 1", "genisletilmis sorgu 2"], "doc_ids": ["id1"], "reasoning": "kisa gerekce"}
 
 Kurallar:
 - sub_queries: 1 ile belirtilen ust siniri arasinda, orijinal sorunun farkli
   yonlerini kapsayan sorgular. Soru zaten tek ve basitse tek eleman yeterlidir.
+- expanded_queries: orijinal sorgunun es anlamli, farkli kelimelerle ifade edilmis
+  varyasyonlari. Bu, arama kapsamini genisletmek icin kullanilir.
 - doc_ids: yalnizca soruda ACIKCA belirtilen bir belge/dosya varsa o belgenin
   katalogdaki id'sini kullan. Belirtilmemisse BOS DIZI dondur (tum belgelerde ara)."#;
 
 const PLANNING_SYSTEM_EN: &str = r#"You are the query planner of a document search system.
 Your job: split the user's question into one or more sub-queries that will
-retrieve better search results, and suggest which documents (if any) should
-be searched. You do NOT answer the question, you only plan the search.
+retrieve better search results, expand the query with synonymous phrases, and
+suggest which documents (if any) should be searched. You do NOT answer the question,
+you only plan the search.
 
 Respond with ONLY a valid JSON object, no other text. Format:
-{"sub_queries": ["sub query 1", "sub query 2"], "doc_ids": ["id1"], "reasoning": "short reasoning"}
+{"sub_queries": ["sub query 1", "sub query 2"], "expanded_queries": ["expanded query 1", "expanded query 2"], "doc_ids": ["id1"], "reasoning": "short reasoning"}
 
 Rules:
 - sub_queries: between 1 and the given maximum, covering distinct aspects of
   the question. A single simple question needs only one element.
+- expanded_queries: synonymous rephrasings of the original query to broaden
+  search coverage.
 - doc_ids: only include a document id if the question EXPLICITLY names that
   document/file; otherwise return an EMPTY array (search all documents)."#;
 
@@ -191,17 +197,41 @@ pub fn reformulation_prompt(original_query: &str, lang: Lang) -> String {
     match lang {
         Lang::En => format!(
             "The previous search for the question below did not return well-supported results.\n\
-Question: {original_query}\n\n\
-Rewrite it as ONE broader or differently-worded search query that might find\n\
-better matching passages in the documents. Respond with ONLY a JSON object:\n\
-{{\"query\": \"rewritten query\"}}"
+            Question: {original_query}\n\n\
+            Rewrite it as ONE broader or differently-worded search query that might find\n\
+            better matching passages in the documents. Respond with ONLY a JSON object:\n\
+            {{\"query\": \"rewritten query\"}}"
         ),
         _ => format!(
             "Asagidaki soru icin yapilan ilk arama, iyi desteklenen sonuclar vermedi.\n\
-Soru: {original_query}\n\n\
-Bunu, belgelerde daha iyi eslesen parcalar bulabilecek DAHA GENIS veya farkli\n\
-kelimelerle ifade edilmis TEK bir arama sorgusu olarak yeniden yaz. SADECE su\n\
-JSON nesnesiyle cevap ver: {{\"query\": \"yeniden yazilmis sorgu\"}}"
+            Soru: {original_query}\n\n\
+            Bunu, belgelerde daha iyi eslesen parcalar bulabilecek DAHA GENIS veya farkli\n\
+            kelimelerle ifade edilmis TEK bir arama sorgusu olarak yeniden yaz. SADECE su\n\
+            JSON nesnesiyle cevap ver: {{\"query\": \"yeniden yazilmis sorgu\"}}"
+        ),
+    }
+}
+
+/// Sorgu genisletme (query expansion) icin kullanilir. Orijinal sorgunun
+/// es anlamli varyasyonlarini uretir.
+pub fn query_expansion_prompt(query: &str, lang: Lang, max_variants: usize) -> String {
+    match lang {
+        Lang::En => format!(
+            "Generate {max_variants} alternative ways to phrase the following search query.\n\
+            Each variant should use different words but mean the same thing.\n\
+            Focus on keywords, synonyms, and technical terms that might appear in documents.\n\n\
+            Original query: {query}\n\n\
+            Respond with ONLY a JSON object:\n\
+            {{\"expanded_queries\": [\"variant 1\", \"variant 2\", ...]}}"
+        ),
+        _ => format!(
+            "Asagidaki arama sorgusu icin {max_variants} farkli ifade etme yontemi uret.\n\
+            Her varyasyon farkli kelimeler kullanmali ama ayni anlama gelmeli.\n\
+            Belgelerde gecabilecek anahtar kelimelere, es anlamlilara ve teknik terimlere\n\
+            odaklan.\n\n\
+            Orijinal sorgu: {query}\n\n\
+            SADECE su JSON nesnesiyle cevap ver:\n\
+            {{\"expanded_queries\": [\"varyasyon 1\", \"varyasyon 2\", ...]}}"
         ),
     }
 }
@@ -226,6 +256,8 @@ mod tests {
                 lang: Lang::Tr,
                 classification: Classification::Unclassified,
                 confidence: 1.0,
+                parent_id: None,
+                chunk_type: dq_core::ChunkType::Standalone,
             },
             score: 0.9,
             dense_score: Some(0.9),

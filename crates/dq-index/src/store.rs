@@ -10,7 +10,7 @@ use std::path::Path;
 use chrono::{DateTime, Utc};
 use dq_core::ids::audit_hash;
 use dq_core::{
-    AuditEvent, Chunk, Classification, Document, DocumentStatus, DqError, Lang, Result, UserContext,
+    AuditEvent, Chunk, ChunkType, Classification, Document, DocumentStatus, DqError, Lang, Result, UserContext,
 };
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -84,9 +84,12 @@ impl Store {
                 token_estimate INTEGER NOT NULL,
                 lang           TEXT NOT NULL,
                 classification INTEGER NOT NULL,
-                confidence     REAL NOT NULL DEFAULT 1.0
+                confidence     REAL NOT NULL DEFAULT 1.0,
+                parent_id      TEXT,
+                chunk_type     TEXT NOT NULL DEFAULT 'standalone'
             );
             CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id, ordinal);
+            CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(parent_id) WHERE parent_id IS NOT NULL;
 
             CREATE TABLE IF NOT EXISTS embeddings (
                 chunk_id TEXT PRIMARY KEY REFERENCES chunks(id) ON DELETE CASCADE,
@@ -128,9 +131,34 @@ impl Store {
                 hash      TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_audit_at ON audit(at);
+            
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER NOT NULL PRIMARY KEY
+            );
+            INSERT OR IGNORE INTO schema_version VALUES (1);
             "#,
         )
-        .map_err(|e| DqError::Storage(e.to_string()))
+        .map_err(|e| DqError::Storage(e.to_string()))?;
+        self.apply_migrations()
+    }
+
+    fn apply_migrations(&self) -> Result<()> {
+        let conn = self.conn.lock();
+        let current: u32 = conn
+            .query_row("SELECT MAX(version) FROM schema_version", [], |row| {
+                row.get(0)
+            })
+            .unwrap_or(0);
+        if current < 2 {
+            conn.execute_batch(
+                "ALTER TABLE chunks ADD COLUMN parent_id TEXT;
+                 ALTER TABLE chunks ADD COLUMN chunk_type TEXT NOT NULL DEFAULT 'standalone';
+                 CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(parent_id) WHERE parent_id IS NOT NULL;
+                 INSERT OR REPLACE INTO schema_version VALUES (2);",
+            )
+            .map_err(|e| DqError::Storage(e.to_string()))?;
+        }
+        Ok(())
     }
 
     // ---------------- documents ----------------
@@ -293,7 +321,7 @@ impl Store {
         let mut stmt = conn
             .prepare(
                 "SELECT c.id, c.doc_id, c.ordinal, c.page_from, c.page_to, c.text, c.heading_path,
-                        c.token_estimate, c.lang, c.classification, c.confidence, e.vec, d.filename
+                        c.token_estimate, c.lang, c.classification, c.confidence, c.parent_id, c.chunk_type, e.vec, d.filename
                  FROM chunks c
                  JOIN embeddings e ON e.chunk_id = c.id
                  JOIN documents  d ON d.id = c.doc_id
@@ -315,9 +343,15 @@ impl Store {
                     lang: Lang::from_code(&row.get::<_, String>(8)?),
                     classification: Classification::from_i64(row.get::<_, i64>(9)?),
                     confidence: row.get(10)?,
+                    parent_id: row.get::<_, Option<String>>(11)?.map(parse_uuid),
+                    chunk_type: match row.get::<_, String>(12)?.as_str() {
+                        "parent" => ChunkType::Parent,
+                        "child" => ChunkType::Child,
+                        _ => ChunkType::Standalone,
+                    },
                 };
-                let blob: Vec<u8> = row.get(11)?;
-                let filename: String = row.get(12)?;
+                let blob: Vec<u8> = row.get(13)?;
+                let filename: String = row.get(14)?;
                 Ok((chunk, decode_vec(&blob), filename))
             })
             .map_err(map_sqlite)?;
@@ -330,7 +364,7 @@ impl Store {
         let conn = self.conn.lock();
         conn.query_row(
             "SELECT id, doc_id, ordinal, page_from, page_to, text, heading_path, token_estimate,
-                    lang, classification, confidence
+                    lang, classification, confidence, parent_id, chunk_type
              FROM chunks WHERE doc_id = ?1 AND ordinal = ?2",
             params![doc_id.to_string(), ordinal as i64],
             |row| {
@@ -346,6 +380,12 @@ impl Store {
                     lang: Lang::from_code(&row.get::<_, String>(8)?),
                     classification: Classification::from_i64(row.get::<_, i64>(9)?),
                     confidence: row.get(10)?,
+                    parent_id: row.get::<_, Option<String>>(11)?.map(parse_uuid),
+                    chunk_type: match row.get::<_, String>(12)?.as_str() {
+                        "parent" => ChunkType::Parent,
+                        "child" => ChunkType::Child,
+                        _ => ChunkType::Standalone,
+                    },
                 })
             },
         )

@@ -230,6 +230,8 @@ pub struct AgentConfig {
     /// LLM'e sorguyu alt-sorgulara ayristirmasi ve belge kapsami onermesi icin
     /// bir planlama cagrisi yapilsin mi?
     pub enable_query_decomposition: bool,
+    /// Sorgu genisletme (query expansion) aktif olsun mu?
+    pub enable_query_expansion: bool,
     /// Bir adimda yetersiz kaynak dogrulamasi (groundedness) olursa, sorguyu
     /// yeniden formule edip ek bir adim daha denensin mi?
     pub enable_self_correction: bool,
@@ -247,6 +249,7 @@ impl Default for AgentConfig {
             enabled: true,
             max_steps: 1,
             enable_query_decomposition: true,
+            enable_query_expansion: true,
             enable_self_correction: false,
             enable_tool_doc_selection: true,
             max_sub_queries: 3,

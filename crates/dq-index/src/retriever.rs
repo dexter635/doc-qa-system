@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use dq_core::config::{EmbeddingConfig, RetrievalConfig};
-use dq_core::{Chunk, Classification, DqError, Result, ScoredChunk};
+use dq_core::{Chunk, ChunkType, Classification, DqError, Lang, Result, ScoredChunk};
 use parking_lot::RwLock;
 use uuid::Uuid;
 
@@ -32,6 +32,8 @@ pub struct SearchOptions {
     /// Bos ise tum belgelerde arama yapilir.
     pub doc_filter: Vec<Uuid>,
     pub top_k: Option<usize>,
+    /// Dili filtresi; None = tum diller.
+    pub lang_filter: Option<Lang>,
 }
 
 impl Default for SearchOptions {
@@ -40,6 +42,7 @@ impl Default for SearchOptions {
             clearance: Classification::TopSecret,
             doc_filter: Vec::new(),
             top_k: None,
+            lang_filter: None,
         }
     }
 }
@@ -133,10 +136,16 @@ impl Retriever {
         // filtre arama *sirasinda* uygulanir, sonradan degil. Aksi halde
         // yetkisiz icerik aday listesine girip skorlari etkilerdi.
         let doc_filter: HashSet<Uuid> = opts.doc_filter.iter().copied().collect();
+        let lang_filter = opts.lang_filter;
         let allow = |i: usize| -> bool {
             let e = &inner.entries[i];
             if !e.chunk.classification.readable_by(opts.clearance) {
                 return false;
+            }
+            if let Some(lang) = lang_filter {
+                if e.chunk.lang != lang {
+                    return false;
+                }
             }
             doc_filter.is_empty() || doc_filter.contains(&e.chunk.doc_id)
         };
@@ -233,6 +242,62 @@ impl Retriever {
         }
         out.sort_by_key(|c| c.ordinal);
         out
+    }
+
+    /// Verilen child chunk'larin parent'larini getirir.
+    /// Parent-child retrieval (RAGFlow, LlamaIndex tarzi): ince taneli child
+    /// chunk'lar yerine genis baglamli parent chunk'lar LLM'e verilir.
+    pub fn parent_chunks(&self, child_ids: &[Uuid]) -> Vec<Chunk> {
+        if child_ids.is_empty() {
+            return Vec::new();
+        }
+        let inner = self.inner.read();
+        let mut parents = Vec::new();
+        let mut seen = HashSet::new();
+
+        for &child_id in child_ids {
+            let Some(child_idx) = inner.entries.iter().position(|e| e.chunk.id == child_id) else {
+                continue;
+            };
+            let child = &inner.entries[child_idx].chunk;
+
+            let parent_id = match child.chunk_type {
+                ChunkType::Child => child.parent_id,
+                _ => None,
+            };
+
+            if let Some(pid) = parent_id {
+                if seen.insert(pid) {
+                    if let Some(p_idx) = inner.entries.iter().position(|e| e.chunk.id == pid) {
+                        parents.push(inner.entries[p_idx].chunk.clone());
+                    }
+                }
+            }
+        }
+        parents
+    }
+
+    /// Disaridan verilen ScoredChunk listesini cross-encoder ile yeniden siralar.
+    /// Agent tarafinda coklu alt-sorgu sonuclarini birlestirdikten sonra
+    /// tek bir skorlamaya gore yeniden siralamak icin kullanilir.
+    pub fn rerank(&self, query: &str, items: &mut [ScoredChunk]) {
+        if items.is_empty() {
+            return;
+        }
+        let Some(rr) = self.reranker.as_ref() else {
+            return;
+        };
+        let docs: Vec<&str> = items.iter().map(|s| s.chunk.text.as_str()).collect();
+        let mut guard = rr.lock();
+        if let Ok(results) = guard.rerank(query, docs, false, None) {
+            for r in results {
+                if let Some(slot) = items.get_mut(r.index) {
+                    let normalized = 1.0 / (1.0 + (-r.score).exp());
+                    slot.rerank_score = Some(normalized);
+                    slot.score = normalized;
+                }
+            }
+        }
     }
 }
 

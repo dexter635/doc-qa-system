@@ -1,16 +1,17 @@
-//! Agentic RAG dongusu: planlama (sorgu ayristirma + arac/belge secimi),
-//! coklu alt-sorgu ile getirme, uretim, ve dusuk guvende kendini duzeltme
-//! (self-correction).
+//! Agentic RAG dongusu: planlama (sorgu ayristirma + genisletme + belge secimi),
+//! coklu alt-sorgu ile getirme, cross-encoder yeniden siralama, uretim, ve
+//! dusuk guvende kendini duzeltme (self-correction).
 //!
 //! Klasik RAG (`agent.enabled = false`) tek bir retrieve->generate->evaluate
 //! adimi calistirir. Bu modul, LLM'in kendi karar verdigi ek adimlar ekler:
 //!
-//! 1. **Plan**: LLM sorguyu alt-sorgulara ayirir ve (varsa) hangi belgenin
-//!    aranmasi gerektigini onerir. LLM yoksa veya JSON'u ayristirilamazsa
+//! 1. **Plan**: LLM sorguyu alt-sorgulara ayirir, genisletir ve (varsa) hangi
+//!    belgenin aranmasi gerektigini onerir. LLM yoksa veya JSON'u ayristirilamazsa
 //!    sezgisel bir yedege (orijinal sorgu, filtresiz arama) duser -
 //!    bu adim asla sistemi durduramaz.
-//! 2. **Retrieve**: her alt-sorgu icin hibrit arama calisir, sonuclar
-//!    chunk kimligine gore birlestirilip en yuksek skor tutulur.
+//! 2. **Retrieve**: her alt-sorgu icin hibrit arama (dense + sparse + RRF) calisir.
+//!    Cross-encoder reranker varsa uygulanir. Sonuclar chunk kimligine gore
+//!    birlestirilir ve MMR cesitlendirmesi ile nihai secim yapilir.
 //! 3. **Generate**: LLM (veya cikarimsal yedek) baglamdan cevap uretir.
 //! 4. **Critique**: cikti guardrail'i kaynak dogrulamasini yapar. Yetersizse
 //!    ve adim butcesi kaldiysa, sorgu yeniden formule edilip 2-4 tekrarlanir.
@@ -18,7 +19,7 @@
 //! Adim sayisi `agent.max_steps` ile sabit bir tavana baglidir; bu maliyet ve
 //! gecikmeyi ongorulebilir tutar (savunma sanayii kullaniminda kritik).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use dq_core::config::AppConfig;
 use dq_core::{
@@ -42,10 +43,23 @@ pub struct AgentOutcome {
     pub classification: Classification,
     pub warnings: Vec<String>,
     pub trace: Vec<AgentStep>,
+    pub metrics: RagMetrics,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RagMetrics {
+    pub retrieval_ms: u64,
+    pub generation_ms: u64,
+    pub critique_ms: u64,
+    pub total_chunks_retrieved: usize,
+    pub unique_docs: usize,
+    pub reranked: bool,
+    pub used_original_query: bool,
 }
 
 struct Plan {
     sub_queries: Vec<String>,
+    expanded_queries: Vec<String>,
     doc_filter: Vec<Uuid>,
 }
 
@@ -85,9 +99,10 @@ pub async fn run(
     let mut trace: Vec<AgentStep> = Vec::new();
     let mut current_query = query.to_string();
     let mut last: Option<(String, Vec<ScoredChunk>)> = None;
+    let mut metrics = RagMetrics::default();
 
     for step in 1..=max_steps {
-        let plan = if acfg.enabled && acfg.enable_query_decomposition {
+        let mut plan = if acfg.enabled && acfg.enable_query_decomposition {
             plan_step(
                 &current_query,
                 lang,
@@ -102,27 +117,69 @@ pub async fn run(
         } else {
             Plan {
                 sub_queries: vec![current_query.clone()],
+                expanded_queries: vec![current_query.clone()],
                 doc_filter: Vec::new(),
             }
         };
 
+        // Sorgu genisletme: LLM genisletme yapmadiysa ve ozellik aktifse,
+        // LLM ile alternatif sorgu varyasyonlari uretilir.
+        if acfg.enable_query_expansion
+            && plan.expanded_queries.len() <= 1
+            && llm_available
+            && step == 1
+        {
+            let variants = generate_multi_query(
+                &current_query,
+                lang,
+                acfg.max_sub_queries,
+                llm,
+                llm_available,
+            )
+            .await;
+            if !variants.is_empty() {
+                plan.expanded_queries = variants;
+            }
+        }
+
         let effective_filter = if !user_doc_filter.is_empty() {
             user_doc_filter.to_vec()
         } else {
-            plan.doc_filter
+            plan.doc_filter.clone()
         };
 
         let retrieve_started = std::time::Instant::now();
         let mut merged = retrieve_merged(
             &plan.sub_queries,
+            &plan.expanded_queries,
             &effective_filter,
             clearance,
             retriever,
             cfg,
+            &mut metrics,
         )?;
         if cfg.retrieval.neighbor_window > 0 && !merged.is_empty() {
             merged = expand_with_neighbors(retriever, merged, cfg.retrieval.neighbor_window);
         }
+        // Nihai merged listeyi orijinal sorgu ile tekrar rerank et.
+        // Bu, farkli alt-sorgulardan gelen sonuclari tek bir skorlamaya gore
+        // yeniden siralamak icin kritiktir.
+        if retriever.has_reranker() && !merged.is_empty() {
+            retriever.rerank(&current_query, &mut merged);
+            merged.sort_by(|a, b| {
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            merged.truncate(cfg.retrieval.final_top_k.max(10));
+        }
+        metrics.retrieval_ms = retrieve_started.elapsed().as_millis() as u64;
+        metrics.total_chunks_retrieved = merged.len();
+        metrics.unique_docs = merged
+            .iter()
+            .map(|s| s.chunk.doc_id)
+            .collect::<HashSet<_>>()
+            .len();
         trace.push(AgentStep {
             step,
             kind: AgentStepKind::Retrieve,
@@ -130,12 +187,14 @@ pub async fn run(
                 "{} alt-sorgudan {} benzersiz kaynak bulundu ({} ms).",
                 plan.sub_queries.len(),
                 merged.len(),
-                retrieve_started.elapsed().as_millis()
+                metrics.retrieval_ms
             ),
             detail: serde_json::json!({
                 "sub_queries": plan.sub_queries,
+                "expanded_queries": plan.expanded_queries,
                 "doc_filter": effective_filter,
                 "result_count": merged.len(),
+                "unique_docs": metrics.unique_docs,
             }),
         });
 
@@ -168,6 +227,7 @@ pub async fn run(
                 "LLM servisi kullanilamiyor ve cikarimsal yedek kapali".into(),
             ));
         };
+        metrics.generation_ms = gen_started.elapsed().as_millis() as u64;
         trace.push(AgentStep {
             step,
             kind: AgentStepKind::Generate,
@@ -178,13 +238,15 @@ pub async fn run(
                 } else {
                     "cikarimsal yedek".to_string()
                 },
-                gen_started.elapsed().as_millis()
+                metrics.generation_ms
             ),
-            detail: serde_json::json!({"chars": raw_text.chars().count()}),
+            detail: serde_json::json!({"chars": raw_text.chars().count(), "model": if llm_available { llm.model() } else { "extractive".into() }}),
         });
 
+        let critique_started = std::time::Instant::now();
         let result = output_guard.evaluate(&raw_text, &context_chunks, lang);
         let passed = result.kind == AnswerKind::Grounded;
+        metrics.critique_ms = critique_started.elapsed().as_millis() as u64;
         trace.push(AgentStep {
             step,
             kind: AgentStepKind::Critique,
@@ -198,6 +260,7 @@ pub async fn run(
                 "support_ratio": result.groundedness.support_ratio,
                 "top_score": result.groundedness.top_score,
                 "passed": passed,
+                "critique_ms": metrics.critique_ms,
             }),
         });
 
@@ -210,6 +273,7 @@ pub async fn run(
                 classification: result.classification,
                 warnings: result.warnings,
                 trace,
+                metrics,
             });
         }
 
@@ -230,6 +294,7 @@ pub async fn run(
         classification: Classification::Unclassified,
         warnings: vec!["Sorguyla eslesen belge bulunamadi.".into()],
         trace,
+        metrics,
     })
 }
 
@@ -249,10 +314,11 @@ async fn plan_step(
             step,
             kind: AgentStepKind::Plan,
             description: "Planlama atlandi (LLM kullanilamiyor); orijinal sorgu kullanildi.".into(),
-            detail: serde_json::json!({"sub_queries": [query]}),
+            detail: serde_json::json!({"sub_queries": [query], "expanded_queries": [query]}),
         });
         return Plan {
             sub_queries: vec![query.to_string()],
+            expanded_queries: vec![query.to_string()],
             doc_filter: Vec::new(),
         };
     }
@@ -285,10 +351,11 @@ async fn plan_step(
                 description: format!(
                     "Planlama cagrisi basarisiz ({e}); orijinal sorgu kullanildi."
                 ),
-                detail: serde_json::json!({"sub_queries": [query]}),
+                detail: serde_json::json!({"sub_queries": [query], "expanded_queries": [query]}),
             });
             return Plan {
                 sub_queries: vec![query.to_string()],
+                expanded_queries: vec![query.to_string()],
                 doc_filter: Vec::new(),
             };
         }
@@ -300,10 +367,11 @@ async fn plan_step(
             kind: AgentStepKind::Plan,
             description: "Planlama ciktisi JSON olarak ayristirilamadi; orijinal sorgu kullanildi."
                 .into(),
-            detail: serde_json::json!({"sub_queries": [query]}),
+            detail: serde_json::json!({"sub_queries": [query], "expanded_queries": [query]}),
         });
         return Plan {
             sub_queries: vec![query.to_string()],
+            expanded_queries: vec![query.to_string()],
             doc_filter: Vec::new(),
         };
     };
@@ -328,6 +396,18 @@ async fn plan_step(
         sub_queries.insert(0, query.to_string());
         sub_queries.truncate(acfg.max_sub_queries.max(1));
     }
+
+    let expanded_queries: Vec<String> = json
+        .get("expanded_queries")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_else(|| sub_queries.clone());
 
     let catalog_ids: std::collections::HashSet<Uuid> = catalog.iter().map(|d| d.id).collect();
     let doc_filter: Vec<Uuid> = json
@@ -355,11 +435,12 @@ async fn plan_step(
                 format!(", {} belgeyle sinirlandirildi", doc_filter.len())
             }
         ),
-        detail: serde_json::json!({"sub_queries": sub_queries, "doc_ids": doc_filter, "reasoning": reasoning}),
+        detail: serde_json::json!({"sub_queries": sub_queries.clone(), "expanded_queries": expanded_queries.clone(), "doc_ids": doc_filter, "reasoning": reasoning}),
     });
 
     Plan {
         sub_queries,
+        expanded_queries,
         doc_filter,
     }
 }
@@ -407,19 +488,63 @@ async fn reformulate(
     next
 }
 
+/// Sorgu genisletme: orijinal sorgunun es anlamli varyasyonlarini uretir.
+/// Bu, arama kapsamini genisletmek icin kullanilir (query expansion).
+async fn generate_multi_query(
+    query: &str,
+    lang: Lang,
+    max_variants: usize,
+    llm: &dyn LlmClient,
+    llm_available: bool,
+) -> Vec<String> {
+    if !llm_available || max_variants <= 1 {
+        return vec![query.to_string()];
+    }
+    let messages = vec![ChatMessage::user(prompts::query_expansion_prompt(
+        query,
+        lang,
+        max_variants,
+    ))];
+    match llm.chat_with_temperature(messages, 0.7).await {
+        Ok(c) => extract_json_object(&c.text)
+            .and_then(|v| {
+                v.get("expanded_queries")
+                    .and_then(|q| q.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|q| q.as_str())
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty() && s != query)
+                            .collect::<Vec<_>>()
+                    })
+            })
+            .unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
 fn retrieve_merged(
     sub_queries: &[String],
+    expanded_queries: &[String],
     doc_filter: &[Uuid],
     clearance: Classification,
     retriever: &Retriever,
     cfg: &AppConfig,
+    metrics: &mut RagMetrics,
 ) -> Result<Vec<ScoredChunk>> {
     let mut best: HashMap<Uuid, ScoredChunk> = HashMap::new();
-    for q in sub_queries {
+    let mut all_queries = sub_queries.to_vec();
+    if !expanded_queries.is_empty() {
+        all_queries.extend_from_slice(expanded_queries);
+    }
+    all_queries.dedup();
+
+    for q in &all_queries {
         let opts = SearchOptions {
             clearance,
             doc_filter: doc_filter.to_vec(),
             top_k: None,
+            lang_filter: None,
         };
         for sc in retriever.search(q, &opts)? {
             best.entry(sc.chunk.id)
@@ -440,10 +565,14 @@ fn retrieve_merged(
     let cap = cfg
         .retrieval
         .final_top_k
-        .saturating_mul(sub_queries.len().max(1))
-        .min(16)
+        .saturating_mul(all_queries.len().max(1))
+        .min(20)
         .max(cfg.retrieval.final_top_k);
     merged.truncate(cap);
+
+    metrics.reranked = retriever.has_reranker();
+    metrics.used_original_query = sub_queries.contains(&all_queries.first().cloned().unwrap_or_default());
+
     Ok(merged)
 }
 
@@ -564,6 +693,8 @@ mod tests {
             lang: Lang::Tr,
             classification: Classification::Unclassified,
             confidence: 1.0,
+            parent_id: None,
+            chunk_type: dq_core::ChunkType::Standalone,
         }
     }
 

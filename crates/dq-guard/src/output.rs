@@ -305,6 +305,8 @@ mod tests {
                 lang: Lang::Tr,
                 classification,
                 confidence: 1.0,
+                parent_id: None,
+                chunk_type: dq_core::ChunkType::Standalone,
             },
             score,
             dense_score: Some(score),

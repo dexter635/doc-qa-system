@@ -100,6 +100,8 @@ mod tests {
                 lang: Lang::Tr,
                 classification: Classification::Unclassified,
                 confidence: 1.0,
+                parent_id: None,
+                chunk_type: dq_core::ChunkType::Standalone,
             },
             score: 0.8,
             dense_score: Some(0.8),

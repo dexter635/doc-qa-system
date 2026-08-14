@@ -184,6 +184,23 @@ pub struct Chunk {
     pub lang: Lang,
     pub classification: Classification,
     pub confidence: f32,
+    /// Ust chunk kimligi (parent-child retrieval icin). None = ana chunk.
+    pub parent_id: Option<Uuid>,
+    /// Chunk turu: "parent" | "child" | "standalone"
+    pub chunk_type: ChunkType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ChunkType {
+    Parent,
+    Child,
+    Standalone,
+}
+
+impl Default for ChunkType {
+    fn default() -> Self {
+        ChunkType::Standalone
+    }
 }
 
 /// Arama sonucu: chunk + skorlar.

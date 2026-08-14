@@ -57,6 +57,7 @@ mmr_lambda = 0.5
 enabled = true
 max_steps = 1
 enable_query_decomposition = true
+enable_query_expansion = true
 enable_self_correction = false
 enable_tool_doc_selection = true
 max_sub_queries = 3
