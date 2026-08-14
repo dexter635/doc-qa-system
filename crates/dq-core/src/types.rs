@@ -190,17 +190,12 @@ pub struct Chunk {
     pub chunk_type: ChunkType,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum ChunkType {
     Parent,
     Child,
+    #[default]
     Standalone,
-}
-
-impl Default for ChunkType {
-    fn default() -> Self {
-        ChunkType::Standalone
-    }
 }
 
 /// Arama sonucu: chunk + skorlar.
