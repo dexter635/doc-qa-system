@@ -324,6 +324,10 @@ async fn plan_step(
     if sub_queries.is_empty() {
         sub_queries.push(query.to_string());
     }
+    if !sub_queries.contains(&query.to_string()) {
+        sub_queries.insert(0, query.to_string());
+        sub_queries.truncate(acfg.max_sub_queries.max(1));
+    }
 
     let catalog_ids: std::collections::HashSet<Uuid> = catalog.iter().map(|d| d.id).collect();
     let doc_filter: Vec<Uuid> = json

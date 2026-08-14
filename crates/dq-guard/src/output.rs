@@ -19,7 +19,7 @@ static MARKER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[(\d+)\]").unwrap());
 /// Minimum ortusme esigi: bir cumlenin kaynagi "destekliyor" sayilmasi icin
 /// gereken n-gram containment orani. Deneysel olarak secildi; cok yuksek
 /// olursa parafraz edilen dogru cevaplar da reddedilir.
-const SUPPORT_CONTAINMENT_THRESHOLD: f32 = 0.42;
+const SUPPORT_CONTAINMENT_THRESHOLD: f32 = 0.30;
 const NGRAM_N: usize = 4;
 /// Bu uzunlugun altindaki cumleler (baslik, "Sonuç:" gibi) dogrulamaya girmez.
 const MIN_SENTENCE_CHARS: usize = 12;
