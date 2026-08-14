@@ -17,7 +17,7 @@ RUN trunk build --release
 # --- Aşama 2: backend (dq-server) derlemesi -------------------------------
 FROM rust:1-slim-trixie AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        pkg-config libssl-dev build-essential clang libstdc++-14-dev \
+        pkg-config libssl-dev build-essential clang libstdc++-14-dev python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 ENV RUSTFLAGS="-C link-arg=-Wl,--no-as-needed -C link-arg=-L/usr/lib/x86_64-linux-gnu -C link-arg=-lstdc++ -C link-arg=-lm -C link-arg=-lc"
 ENV CXXFLAGS="-stdlib=libstdc++"
@@ -35,6 +35,12 @@ COPY crates/dq-server ./crates/dq-server
 # derlenebilir bir stub birakiyoruz ki workspace cozumlemesi bozulmasin.
 RUN cargo build --release -p dq-server
 
+# ONNX gomme modelini Docker build sirasinda indir
+RUN mkdir -p /app/models/embeddings && \
+    pip3 install --no-cache-dir huggingface_hub && \
+    python3 -c "from huggingface_hub import snapshot_download; snapshot_download('Qdrant/all-MiniLM-L6-v2-onnx', local_dir='/app/models/embeddings/models--Qdrant--all-MiniLM-L6-v2-onnx')" && \
+    rm -rf /root/.cache/huggingface
+
 # --- Aşama 3: calisma zamani imaji -----------------------------------------
 # Calisma zamani da build'in urettigi binary'nin glibc'ini karsilayabilmek
 # icin trixie olmali (gard: derliyici ve calistirici ayni libc surumu).
@@ -48,6 +54,7 @@ WORKDIR /app
 COPY --from=backend-builder /src/target/release/dq-server ./dq-server
 COPY --from=frontend-builder /src/crates/dq-web/dist ./static
 COPY config ./config
+COPY --from=backend-builder /app/models/embeddings /app/models/embeddings
 
 RUN mkdir -p /app/data /app/models && chown -R dqapp:dqapp /app
 USER dqapp
