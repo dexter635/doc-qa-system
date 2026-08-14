@@ -37,7 +37,7 @@ RUN cargo build --release -p dq-server
 
 # ONNX gomme modelini Docker build sirasinda indir
 RUN mkdir -p /app/models/embeddings && \
-    pip3 install --no-cache-dir huggingface_hub && \
+    pip3 install --no-cache-dir --break-system-packages huggingface_hub && \
     python3 -c "from huggingface_hub import snapshot_download; snapshot_download('Qdrant/all-MiniLM-L6-v2-onnx', local_dir='/app/models/embeddings/models--Qdrant--all-MiniLM-L6-v2-onnx')" && \
     rm -rf /root/.cache/huggingface
 
