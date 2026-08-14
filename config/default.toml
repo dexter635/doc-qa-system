@@ -43,22 +43,22 @@ offline = false                # air-gapped kurulumda true yapin
 reranker_model = ""            # ornek: "bge-reranker-base"
 
 [retrieval]
-dense_top_k = 40
-sparse_top_k = 40
-rerank_candidates = 24
-final_top_k = 6
+dense_top_k = 100
+sparse_top_k = 100
+rerank_candidates = 50
+final_top_k = 10
 rrf_k = 60.0
-min_score = 0.18
-neighbor_window = 1
-context_token_budget = 3000
-mmr_lambda = 0.72
+min_score = 0.0
+neighbor_window = 2
+context_token_budget = 4000
+mmr_lambda = 0.5
 
 [agent]
 enabled = true
-max_steps = 2                       # toplam RAG dongusu tavani (maliyet/gecikme siniri)
-enable_query_decomposition = true   # LLM sorguyu alt-sorgulara ayristirsin mi?
-enable_self_correction = true       # dusuk kaynak dogrulamasinda tek seferlik yeniden deneme
-enable_tool_doc_selection = true    # LLM belge kapsamini kendisi onerebilsin mi?
+max_steps = 1
+enable_query_decomposition = true
+enable_self_correction = false
+enable_tool_doc_selection = true
 max_sub_queries = 3
 
 [cache]
@@ -75,8 +75,8 @@ model = "qwen2.5:0.5b-instruct"
 api_key = ""
 temperature = 0.1
 top_p = 0.9
-max_tokens = 900
-timeout_secs = 600
+max_tokens = 512
+timeout_secs = 120
 extractive_fallback = true
 probe_on_start = true
 

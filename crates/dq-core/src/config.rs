@@ -245,9 +245,9 @@ impl Default for AgentConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            max_steps: 2,
+            max_steps: 1,
             enable_query_decomposition: true,
-            enable_self_correction: true,
+            enable_self_correction: false,
             enable_tool_doc_selection: true,
             max_sub_queries: 3,
         }
@@ -322,7 +322,7 @@ impl Default for EmbeddingConfig {
             query_prefix: "query: ".into(),
             passage_prefix: "passage: ".into(),
             batch_size: 16,
-            cache_dir: PathBuf::from("models/embeddings"),
+            cache_dir: "models/embeddings".into(),
             offline: false,
             reranker_model: String::new(),
         }
@@ -332,15 +332,15 @@ impl Default for EmbeddingConfig {
 impl Default for RetrievalConfig {
     fn default() -> Self {
         Self {
-            dense_top_k: 40,
-            sparse_top_k: 40,
-            rerank_candidates: 24,
-            final_top_k: 6,
+            dense_top_k: 100,
+            sparse_top_k: 100,
+            rerank_candidates: 50,
+            final_top_k: 10,
             rrf_k: 60.0,
-            min_score: 0.18,
-            neighbor_window: 1,
-            context_token_budget: 3000,
-            mmr_lambda: 0.72,
+            min_score: 0.0,
+            neighbor_window: 2,
+            context_token_budget: 4000,
+            mmr_lambda: 0.5,
         }
     }
 }
@@ -366,7 +366,7 @@ impl Default for LlmConfig {
             api_key: String::new(),
             temperature: 0.1,
             top_p: 0.9,
-            max_tokens: 900,
+            max_tokens: 512,
             timeout_secs: 120,
             extractive_fallback: true,
             probe_on_start: true,
