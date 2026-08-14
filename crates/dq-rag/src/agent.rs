@@ -43,6 +43,7 @@ pub struct AgentOutcome {
     pub classification: Classification,
     pub warnings: Vec<String>,
     pub trace: Vec<AgentStep>,
+    #[allow(dead_code)]
     pub metrics: RagMetrics,
 }
 
