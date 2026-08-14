@@ -317,7 +317,7 @@ impl Default for OcrConfig {
 impl Default for EmbeddingConfig {
     fn default() -> Self {
         Self {
-            model: "multilingual-e5-small".into(),
+            model: "all-minilm-l6-v2".into(),
             dim: 384,
             query_prefix: "query: ".into(),
             passage_prefix: "passage: ".into(),
@@ -362,7 +362,7 @@ impl Default for LlmConfig {
     fn default() -> Self {
         Self {
             base_url: "http://127.0.0.1:8000/v1".into(),
-            model: "qwen2.5-7b-instruct".into(),
+            model: "qwen2.5-0.5b-instruct".into(),
             api_key: String::new(),
             temperature: 0.1,
             top_p: 0.9,

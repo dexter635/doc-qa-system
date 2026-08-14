@@ -28,7 +28,7 @@ flowchart LR
     end
     subgraph Yerel Modeller
         OLLAMA[(Ollama / llama.cpp<br/>OpenAI-uyumlu sunucu)]
-        EMB[(fastembed ONNX<br/>multilingual-e5-small)]
+        EMB[(fastembed ONNX<br/>all-minilm-l6-v2)]
         OCR[(Tesseract OCR<br/>tur+eng)]
     end
     DB[(SQLite<br/>belge/chunk/vektör/cache/audit)]

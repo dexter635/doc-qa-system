@@ -33,7 +33,7 @@ min_line_confidence = 0.35
 preprocess = true
 
 [embedding]
-model = "multilingual-e5-small"
+model = "all-minilm-l6-v2"
 dim = 384
 query_prefix = "query: "
 passage_prefix = "passage: "
@@ -71,7 +71,7 @@ embedding_cache_enabled = true
 
 [llm]
 base_url = "http://127.0.0.1:11434/v1"
-model = "qwen2.5:7b-instruct"
+model = "qwen2.5:0.5b-instruct"
 api_key = ""
 temperature = 0.1
 top_p = 0.9
