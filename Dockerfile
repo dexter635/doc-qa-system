@@ -38,24 +38,8 @@ RUN cargo build --release -p dq-server
 # Pre-download tiny embedding model for offline runtime
 RUN mkdir -p /tmp/embed-prefetch/src /app/models/embeddings && \
     cd /tmp/embed-prefetch && \
-    cat > Cargo.toml << 'EOF' && \
-[package]
-name = "embed-prefetch"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-fastembed = "5"
-EOF
-    cat > src/main.rs << 'EOF' && \
-use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};
-fn main() {
-    let _ = TextEmbedding::try_new(
-        TextInitOptions::new(EmbeddingModel::AllMiniLML6V2)
-            .with_cache_dir("/app/models/embeddings")
-    );
-}
-EOF
+    printf '%s\n' '[package]' 'name = "embed-prefetch"' 'version = "0.1.0"' 'edition = "2021"' '' '[dependencies]' 'fastembed = "5"' > Cargo.toml && \
+    printf '%s\n' 'use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};' 'fn main() {' '    let _ = TextEmbedding::try_new(' '        TextInitOptions::new(EmbeddingModel::AllMiniLML6V2)' '            .with_cache_dir("/app/models/embeddings")' '    );' '}' > src/main.rs && \
     cargo run --release && \
     rm -rf /tmp/embed-prefetch
 
