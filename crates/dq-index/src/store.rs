@@ -136,30 +136,10 @@ impl Store {
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER NOT NULL PRIMARY KEY
             );
-            INSERT OR IGNORE INTO schema_version VALUES (1);
+            INSERT OR IGNORE INTO schema_version VALUES (2);
             "#,
         )
         .map_err(|e| DqError::Storage(e.to_string()))?;
-        drop(conn);
-        self.apply_migrations()
-    }
-
-    fn apply_migrations(&self) -> Result<()> {
-        let conn = self.conn.lock();
-        let current: u32 = conn
-            .query_row("SELECT MAX(version) FROM schema_version", [], |row| {
-                row.get(0)
-            })
-            .unwrap_or(0);
-        if current < 2 {
-            conn.execute_batch(
-                "ALTER TABLE chunks ADD COLUMN parent_id TEXT;
-                 ALTER TABLE chunks ADD COLUMN chunk_type TEXT NOT NULL DEFAULT 'standalone';
-                 CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(parent_id) WHERE parent_id IS NOT NULL;
-                 INSERT OR REPLACE INTO schema_version VALUES (2);",
-            )
-            .map_err(|e| DqError::Storage(e.to_string()))?;
-        }
         Ok(())
     }
 
