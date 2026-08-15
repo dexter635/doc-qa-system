@@ -73,7 +73,7 @@ pub async fn run(
     };
     let llm_available = llm.healthy().await;
 
-    let catalog = if acfg.enabled && acfg.enable_tool_doc_selection && user_doc_filter.is_empty() {
+    let _catalog = if acfg.enabled && acfg.enable_tool_doc_selection && user_doc_filter.is_empty() {
         store
             .list_documents(clearance)?
             .into_iter()
@@ -248,6 +248,7 @@ pub async fn run(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(dead_code)]
 async fn plan_step(
     query: &str,
     lang: Lang,
@@ -439,6 +440,7 @@ async fn reformulate(
 
 /// Sorgu genisletme: orijinal sorgunun es anlamli varyasyonlarini uretir.
 /// Bu, arama kapsamini genisletmek icin kullanilir (query expansion).
+#[allow(dead_code)]
 async fn generate_multi_query(
     query: &str,
     lang: Lang,
