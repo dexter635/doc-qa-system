@@ -205,6 +205,17 @@ pub async fn run(
             answer_kind = AnswerKind::Refused;
             groundedness = empty_groundedness();
             warnings.push("LLM cevabi bos veya hatali.".into());
+        } else if cfg.llm.extractive_fallback && !context_chunks.is_empty() {
+            let trimmed = raw_text.trim();
+            let is_only_citation = trimmed.len() <= 6 && trimmed.starts_with('[') && trimmed.ends_with(']');
+            let is_not_found = trimmed == "Not in documents." || trimmed == "Bu bilgi yüklenen belgelerde bulunmuyor.";
+            if is_only_citation || is_not_found {
+                let extractive = fallback_text(&current_query, &context_chunks, lang, cfg);
+                if !extractive.trim().is_empty() && extractive.trim() != "Not in documents." && extractive.trim() != "Bu bilgi yüklenen belgelerde bulunmuyor." {
+                    answer_text = extractive;
+                    warnings.push("LLM cevabi yetersiz, cikarimsal yedek kullanildi.".into());
+                }
+            }
         }
 
         return Ok(AgentOutcome {

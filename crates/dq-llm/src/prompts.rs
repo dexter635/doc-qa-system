@@ -29,9 +29,27 @@ pub fn system_prompt(lang: Lang) -> String {
     }
 }
 
-const SYSTEM_TR: &str = r#"Yukaridaki kaynaklara dayanarak soruyu cevapla. Yalnizca kaynaklarda verilen bilgileri kullan. Bilgi yoksa "Bu bilgi yuklenen belgelerde bulunmuyor." yaz. Her bilgi iceren cumleyi [1], [2] seklinde kaynak numarasyla bitir. Cevabi kisa tut."#;
+const SYSTEM_TR: &str = r#"Sen bir belge analiz asistansın. Yukarıdaki kaynaklardan bilgi çıkar ve soruyu cevapla.
 
-const SYSTEM_EN: &str = r#"Answer using only the provided sources. Cite facts with [n]. If not found, say "Not in documents." Be concise."#;
+KURALLAR:
+1. Yalnızca yukarıdaki kaynaklardaki bilgileri kullan.
+2. Cevabı şu formatta ver:
+   - Bilgi bulunursa: [kaynak numarası] ile atıf ekleyerek cevap ver
+   - Bilgi bulunamazsa: "Bu bilgi yüklenen belgelerde bulunmuyor." yaz
+3. Cevabı kısa ve öz tut (en fazla 2-3 cümle).
+4. Her cümleyi [1], [2] şeklinde kaynak numarasıyla bitir.
+5. Emin olmadığın bilgileri UYDURMA."#;
+
+const SYSTEM_EN: &str = r#"You are a document analysis assistant. Extract information from the sources above and answer the question.
+
+RULES:
+1. Use ONLY the information from the sources above.
+2. Format your answer:
+   - If found: cite with [source number] and give the answer
+   - If not found: write "Not in documents."
+3. Keep answer short and concise (max 2-3 sentences).
+4. End every sentence with [n] citation.
+5. Do NOT make up information you are not sure about."#;
 
 /// Baglam blogunu olusturur. Kaynak numaralari 1'den baslar ve
 /// dogrulama katmanindaki `Citation.marker` ile birebir eslesir.
@@ -78,8 +96,8 @@ fn sanitize_context(text: &str) -> String {
 
 pub fn user_prompt(question: &str, context: &str, lang: Lang) -> String {
     let instruction = match lang {
-        Lang::En => "Answer from sources above. Cite with [n].",
-        _ => "Yukarıdaki kaynaklardan cevap ver. [n] ile atıf ekle.",
+        Lang::En => "Based on the sources above, answer the question. If the answer is in the sources, provide it with [n] citations. If not found, say 'Not in documents.'",
+        _ => "Yukarıdaki kaynaklardan yararlanarak soruyu cevapla. Cevap kaynaklarda varsa [n] atıflarıyla ver. Bulunamazsa 'Bu bilgi yüklenen belgelerde bulunmuyor.' yaz.",
     };
     format!("{context}\n\nSoru: {question}\n\n{instruction}")
 }
