@@ -18,8 +18,8 @@ index_dir = "data/index"
 [ingest]
 max_file_bytes = 52428800      # 50 MB
 max_pages = 500
-chunk_tokens = 256
-chunk_overlap_tokens = 32
+chunk_tokens = 200
+chunk_overlap_tokens = 24
 min_chunk_tokens = 40
 ocr_fallback_char_threshold = 120
 render_dpi = 200.0
@@ -45,12 +45,12 @@ reranker_model = ""
 [retrieval]
 dense_top_k = 20
 sparse_top_k = 25
-rerank_candidates = 10
-final_top_k = 6
+rerank_candidates = 8
+final_top_k = 4
 rrf_k = 60.0
 min_score = 0.0
-neighbor_window = 0
-context_token_budget = 2000
+neighbor_window = 1
+context_token_budget = 1500
 mmr_lambda = 0.3
 
 [agent]
@@ -67,8 +67,8 @@ base_url = "http://ollama:11434"
 model = "qwen2.5:1.5b"
 api_key = ""
 temperature = 0.0
-top_p = 0.8
-max_tokens = 512
+top_p = 0.7
+max_tokens = 384
 timeout_secs = 30
 extractive_fallback = false
 probe_on_start = true
