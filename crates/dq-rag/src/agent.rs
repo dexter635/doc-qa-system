@@ -207,9 +207,10 @@ pub async fn run(
             warnings.push("LLM cevabi bos veya hatali.".into());
         } else if cfg.llm.extractive_fallback && !context_chunks.is_empty() {
             let trimmed = raw_text.trim();
+            let lower = trimmed.to_lowercase();
             let is_only_citation = trimmed.len() <= 6 && trimmed.starts_with('[') && trimmed.ends_with(']');
             let is_not_found = trimmed == "Not in documents." || trimmed == "Bu bilgi yüklenen belgelerde bulunmuyor.";
-            let is_raw_dump = trimmed.len() > 500 && (trimmed.starts_with("Relevant excerpts") || trimmed.starts_with("Kaynak metin") || trimmed.contains("</belgeler>"));
+            let is_raw_dump = trimmed.len() > 300 && (lower.starts_with("relevant excerpts") || lower.starts_with("kaynak metin") || lower.contains("</belgeler>") || (trimmed.contains("[1]") && trimmed.contains("[2]") && trimmed.len() > 800));
             if is_only_citation || is_not_found || is_raw_dump {
                 let extractive = fallback_text(&current_query, &context_chunks, lang, cfg);
                 if !extractive.trim().is_empty() && extractive.trim() != "Not in documents." && extractive.trim() != "Bu bilgi yüklenen belgelerde bulunmuyor." {
