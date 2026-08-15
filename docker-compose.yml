@@ -4,15 +4,24 @@ services:
     container_name: dqa-ollama
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
-    command: ["ollama serve & sleep 3 && ollama pull tinyllama && wait"]
+    command: ["ollama serve & sleep 3 && ollama pull qwen2.5:0.5b && wait"]
     environment:
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_DEBUG=0
-      - OLLAMA_NUM_THREAD=2
-      - OLLAMA_CONTEXT_LENGTH=2048
+      - OLLAMA_NUM_THREAD=6
+      - OLLAMA_CONTEXT_LENGTH=1024
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=-1
     volumes:
       - dqa-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   dq-server:
     build:
@@ -29,7 +38,7 @@ services:
       DQ_EMBEDDING_OFFLINE: "true"
       DQ_OCR_ENGINE: "tesseract"
       DQ_LLM_BASE_URL: "http://ollama:11434"
-      DQ_LLM_MODEL: "tinyllama"
+      DQ_LLM_MODEL: "qwen2.5:0.5b"
       DQ_LLM_PROBE_ON_START: "true"
       DQ_LLM_EXTRACTIVE_FALLBACK: "true"
       RUST_LOG: "info"
