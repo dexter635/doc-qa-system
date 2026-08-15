@@ -209,7 +209,8 @@ pub async fn run(
             let trimmed = raw_text.trim();
             let is_only_citation = trimmed.len() <= 6 && trimmed.starts_with('[') && trimmed.ends_with(']');
             let is_not_found = trimmed == "Not in documents." || trimmed == "Bu bilgi yüklenen belgelerde bulunmuyor.";
-            if is_only_citation || is_not_found {
+            let is_raw_dump = trimmed.len() > 500 && (trimmed.starts_with("Relevant excerpts") || trimmed.starts_with("Kaynak metin") || trimmed.contains("</belgeler>"));
+            if is_only_citation || is_not_found || is_raw_dump {
                 let extractive = fallback_text(&current_query, &context_chunks, lang, cfg);
                 if !extractive.trim().is_empty() && extractive.trim() != "Not in documents." && extractive.trim() != "Bu bilgi yüklenen belgelerde bulunmuyor." {
                     answer_text = extractive;
