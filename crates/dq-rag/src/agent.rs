@@ -86,7 +86,6 @@ pub async fn run(
 
     let mut trace: Vec<AgentStep> = Vec::new();
     let mut current_query = query.to_string();
-    let mut last: Option<(String, Vec<ScoredChunk>)> = None;
 
     for step in 1..=max_steps {
         let plan = Plan {
@@ -227,15 +226,10 @@ pub async fn run(
             });
         }
 
-        // Yetersiz destek: bir sonraki adim icin sorguyu yeniden formule et.
-        current_query =
-            reformulate(&current_query, lang, llm, llm_available, step, &mut trace).await;
-        last = Some((current_query.clone(), context_chunks));
     }
 
     // Dongu, ilk yinelemede hic sonuc bulamadan kirildiysa (merged.is_empty()) buraya duser.
     let lang_for_refusal = lang;
-    let _ = last;
     Ok(AgentOutcome {
         text: prompts::refusal(lang_for_refusal).to_string(),
         kind: AnswerKind::Refused,
@@ -245,49 +239,6 @@ pub async fn run(
         warnings: vec!["Sorguyla eslesen belge bulunamadi.".into()],
         trace,
     })
-}
-
-fn retrieve_merged(
-    original_query: &str,
-    lang: Lang,
-    llm: &dyn LlmClient,
-    llm_available: bool,
-    step: usize,
-    trace: &mut Vec<AgentStep>,
-) -> String {
-    if !llm_available {
-        trace.push(AgentStep {
-            step,
-            kind: AgentStepKind::Plan,
-            description:
-                "Yeniden formulasyon icin LLM yok; belge kapsami genisletilerek tekrar denenecek."
-                    .into(),
-            detail: serde_json::json!({"query": original_query}),
-        });
-        return original_query.to_string();
-    }
-    let messages = vec![ChatMessage::user(prompts::reformulation_prompt(
-        original_query,
-        lang,
-    ))];
-    let rewritten = match llm.chat_with_temperature(messages, 0.3).await {
-        Ok(c) => extract_json_object(&c.text)
-            .and_then(|v| {
-                v.get("query")
-                    .and_then(|q| q.as_str())
-                    .map(|s| s.trim().to_string())
-            })
-            .filter(|s| !s.is_empty()),
-        Err(_) => None,
-    };
-    let next = rewritten.unwrap_or_else(|| original_query.to_string());
-    trace.push(AgentStep {
-        step,
-        kind: AgentStepKind::Plan,
-        description: "Yetersiz kaynak dogrulamasi nedeniyle sorgu yeniden formule edildi.".into(),
-        detail: serde_json::json!({"original": original_query, "rewritten": next}),
-    });
-    next
 }
 
 fn retrieve_merged(
