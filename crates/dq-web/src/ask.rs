@@ -108,7 +108,6 @@ fn AnswerCard(answer: Answer) -> impl IntoView {
             </div>
             <p class="answer-text">{answer.text.clone()}</p>
             <div class="answer-meta">
-                <span>"Model: " {answer.model.clone()}</span>
                 <span>"Süre: " {answer.latency_ms} "ms"</span>
                 <span>{if answer.cached { "Önbellekten" } else { "Yeni üretildi" }}</span>
                 <span>"Dil: " {ui::lang_label(&answer.lang)}</span>

@@ -67,16 +67,6 @@ async fn main() -> anyhow::Result<()> {
     } else {
         Arc::new(OpenAiCompatClient::new(&cfg.llm)?)
     };
-    if cfg.llm.probe_on_start {
-        if llm.healthy().await {
-            tracing::info!(base_url = %cfg.llm.base_url, "yerel LLM servisine ulasildi");
-        } else {
-            tracing::warn!(
-                base_url = %cfg.llm.base_url,
-                "yerel LLM servisine ulasilamadi; cikarimsal yedek moduna dusulecek"
-            );
-        }
-    }
 
     let pipeline = Arc::new(Pipeline::new(
         cfg.clone(),
