@@ -43,7 +43,14 @@ RUN mkdir -p /tmp/embed-prefetch/src /app/models/embeddings && \
     cargo run --release && \
     rm -rf /tmp/embed-prefetch
 
-# --- Aşama 3: calisma zamani imaji -----------------------------------------
+# --- Aşama 3: LLM modeli indirme -----------------------------------------
+FROM alpine:latest AS llm-model
+RUN apk add --no-cache curl
+RUN mkdir -p /models && \
+    curl -L --retry 3 --retry-delay 5 -o /models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+
+# --- Aşama 4: calisma zamani imaji -----------------------------------------
 FROM debian:trixie-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng \
@@ -55,6 +62,7 @@ WORKDIR /app
 COPY --from=backend-builder /src/target/release/dq-server ./dq-server
 COPY --from=frontend-builder /src/crates/dq-web/dist ./static
 COPY --from=backend-builder /app/models/embeddings ./models/embeddings
+COPY --from=llm-model /models ./models
 COPY config ./config
 
 RUN mkdir -p /app/data && chown -R dqapp:dqapp /app
