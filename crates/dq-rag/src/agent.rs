@@ -226,6 +226,7 @@ pub async fn run(
             warnings,
             trace,
         });
+    }
 
     // Dongu, ilk yinelemede hic sonuc bulamadan kirildiysa (merged.is_empty()) buraya duser.
     let lang_for_refusal = lang;
