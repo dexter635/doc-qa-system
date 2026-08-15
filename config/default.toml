@@ -43,15 +43,15 @@ offline = true
 reranker_model = ""
 
 [retrieval]
-dense_top_k = 10
-sparse_top_k = 15
+dense_top_k = 15
+sparse_top_k = 20
 rerank_candidates = 0
 final_top_k = 4
 rrf_k = 60.0
 min_score = 0.0
 neighbor_window = 0
 context_token_budget = 1200
-mmr_lambda = 0.5
+mmr_lambda = 0.3
 
 [agent]
 enabled = false
