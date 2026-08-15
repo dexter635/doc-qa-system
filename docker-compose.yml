@@ -13,15 +13,9 @@ services:
       - OLLAMA_CONTEXT_LENGTH=1024
       - OLLAMA_FLASH_ATTENTION=1
       - OLLAMA_KEEP_ALIVE=-1
+      - NVIDIA_VISIBLE_DEVICES=all
     volumes:
       - dqa-models:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
   dq-server:
     build:
