@@ -140,6 +140,7 @@ impl Store {
             "#,
         )
         .map_err(|e| DqError::Storage(e.to_string()))?;
+        drop(conn);
         self.apply_migrations()
     }
 
