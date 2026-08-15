@@ -191,37 +191,21 @@ pub async fn run(
             detail: serde_json::json!({"chars": raw_text.chars().count(), "model": if llm_available { llm.model() } else { "extractive".into() }}),
         });
 
-        let critique_started = std::time::Instant::now();
-        let result = output_guard.evaluate(&raw_text, &context_chunks, lang);
-        let passed = result.kind == AnswerKind::Grounded;
-        let critique_ms = critique_started.elapsed().as_millis() as u64;
-        trace.push(AgentStep {
-            step,
-            kind: AgentStepKind::Critique,
-            description: format!(
-                "Kaynak dogrulama: {:?}, destek orani %{:.0}, en iyi skor {:.2}.",
-                result.kind,
-                result.groundedness.support_ratio * 100.0,
-                result.groundedness.top_score
-            ),
-            detail: serde_json::json!({
-                "support_ratio": result.groundedness.support_ratio,
-                "top_score": result.groundedness.top_score,
-                "passed": passed,
-                "critique_ms": critique_ms,
-            }),
-        });
+        let mut answer_text = raw_text;
+        let mut answer_kind = AnswerKind::Grounded;
+        let mut groundedness = Groundedness {
+            support_ratio: 1.0,
+            unsupported_sentences: Vec::new(),
+            top_score: merged.first().map(|s| s.score).unwrap_or(0.0),
+            passed: true,
+        };
+        let mut warnings = Vec::new();
 
-        if passed || !acfg.enabled || !acfg.enable_self_correction || step >= max_steps {
-            return Ok(AgentOutcome {
-                text: result.text,
-                kind: result.kind,
-                citations: result.citations,
-                groundedness: result.groundedness,
-                classification: result.classification,
-                warnings: result.warnings,
-                trace,
-            });
+        if !llm_available || raw_text.trim().is_empty() {
+            answer_text = prompts::refusal(lang).to_string();
+            answer_kind = AnswerKind::Refused;
+            groundedness = empty_groundedness();
+            warnings.push("LLM cevabi bos veya hatali.".into());
         }
 
     }

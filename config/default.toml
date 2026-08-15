@@ -50,7 +50,7 @@ final_top_k = 4
 rrf_k = 60.0
 min_score = -0.1
 neighbor_window = 2
-context_token_budget = 1500
+context_token_budget = 800
 mmr_lambda = 0.2
 
 [agent]
@@ -68,7 +68,7 @@ model = "qwen2.5:1.5b"
 api_key = ""
 temperature = 0.0
 top_p = 0.7
-max_tokens = 384
+max_tokens = 128
 timeout_secs = 30
 extractive_fallback = false
 probe_on_start = true
