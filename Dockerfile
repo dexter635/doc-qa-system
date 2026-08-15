@@ -35,19 +35,50 @@ COPY crates/dq-server ./crates/dq-server
 # derlenebilir bir stub birakiyoruz ki workspace cozumlemesi bozulmasin.
 RUN cargo build --release -p dq-server
 
+# Pre-download tiny embedding model for offline runtime
+RUN mkdir -p /tmp/embed-prefetch/src /app/models/embeddings && \
+    cd /tmp/embed-prefetch && \
+    cat > Cargo.toml << 'EOF' && \
+[package]
+name = "embed-prefetch"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fastembed = "5"
+EOF
+    cat > src/main.rs << 'EOF' && \
+use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};
+fn main() {
+    let _ = TextEmbedding::try_new(
+        TextInitOptions::new(EmbeddingModel::AllMiniLML6V2)
+            .with_cache_dir("/app/models/embeddings")
+    );
+}
+EOF
+    cargo run --release && \
+    rm -rf /tmp/embed-prefetch
+
+# Collect ONNX Runtime shared library if dynamically linked
+RUN mkdir -p /app/lib && \
+    find /root /usr/local/cargo /tmp -name "libonnxruntime.so" -exec cp {} /app/lib/ \; 2>/dev/null || true
+
 # --- Aşama 3: calisma zamani imaji -----------------------------------------
 FROM debian:trixie-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng \
+        libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --create-home --uid 10001 dqapp
 
 WORKDIR /app
 COPY --from=backend-builder /src/target/release/dq-server ./dq-server
 COPY --from=frontend-builder /src/crates/dq-web/dist ./static
+COPY --from=backend-builder /app/models/embeddings ./models/embeddings
+COPY --from=backend-builder /app/lib/libonnxruntime.so /usr/lib/x86_64-linux-gnu/libonnxruntime.so
 COPY config ./config
 
-RUN mkdir -p /app/data /app/models && chown -R dqapp:dqapp /app
+RUN mkdir -p /app/data && chown -R dqapp:dqapp /app
 USER dqapp
 
 ENV DQ_CONFIG=/app/config/default.toml \

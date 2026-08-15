@@ -33,24 +33,24 @@ min_line_confidence = 0.35
 preprocess = true
 
 [embedding]
-model = "hash-ngram-384"
+model = "all-minilm-l6-v2"
 dim = 384
 query_prefix = ""
 passage_prefix = ""
-batch_size = 64
+batch_size = 32
 cache_dir = "models/embeddings"
 offline = true
 reranker_model = ""
 
 [retrieval]
-dense_top_k = 20
-sparse_top_k = 30
+dense_top_k = 10
+sparse_top_k = 15
 rerank_candidates = 0
-final_top_k = 5
+final_top_k = 4
 rrf_k = 60.0
 min_score = 0.0
 neighbor_window = 0
-context_token_budget = 1500
+context_token_budget = 1200
 mmr_lambda = 0.5
 
 [agent]

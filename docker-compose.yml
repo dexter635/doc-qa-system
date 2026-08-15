@@ -13,14 +13,6 @@ services:
       - OLLAMA_CONTEXT_LENGTH=2048
     volumes:
       - dqa-models:/root/.ollama
-    ports:
-      - "127.0.0.1:11435:11434"
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:11434/api/tags"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 120s
 
   dq-server:
     build:
@@ -34,7 +26,6 @@ services:
       DQ_JWT_SECRET: "${DQA_JWT_SECRET}"
       DQ_DB_PATH: "/app/data/docqa.sqlite3"
       DQ_MODEL_DIR: "/app/models"
-      DQ_EMBEDDING_OFFLINE: "true"
       DQ_OCR_ENGINE: "tesseract"
       DQ_LLM_BASE_URL: "http://ollama:11434"
       DQ_LLM_MODEL: "tinyllama:latest"
@@ -46,9 +37,6 @@ services:
       - ./config/default.toml:/app/config/default.toml:ro
     ports:
       - "8080:8080"
-    depends_on:
-      ollama:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/live"]
       interval: 15s
