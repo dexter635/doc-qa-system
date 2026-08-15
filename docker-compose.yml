@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     environment:
       - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_CTX=1024
     volumes:
       - ollama-models:/root/.ollama
     ports:

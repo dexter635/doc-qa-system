@@ -89,45 +89,11 @@ pub async fn run(
     let mut last: Option<(String, Vec<ScoredChunk>)> = None;
 
     for step in 1..=max_steps {
-        let mut plan = if acfg.enabled && acfg.enable_query_decomposition {
-            plan_step(
-                &current_query,
-                lang,
-                acfg,
-                &catalog,
-                llm,
-                llm_available,
-                step,
-                &mut trace,
-            )
-            .await
-        } else {
-            Plan {
-                sub_queries: vec![current_query.clone()],
-                expanded_queries: vec![current_query.clone()],
-                doc_filter: Vec::new(),
-            }
+        let plan = Plan {
+            sub_queries: vec![current_query.clone()],
+            expanded_queries: vec![current_query.clone()],
+            doc_filter: Vec::new(),
         };
-
-        // Sorgu genisletme: LLM genisletme yapmadiysa ve ozellik aktifse,
-        // LLM ile alternatif sorgu varyasyonlari uretilir.
-        if acfg.enable_query_expansion
-            && plan.expanded_queries.len() <= 1
-            && llm_available
-            && step == 1
-        {
-            let variants = generate_multi_query(
-                &current_query,
-                lang,
-                acfg.max_sub_queries,
-                llm,
-                llm_available,
-            )
-            .await;
-            if !variants.is_empty() {
-                plan.expanded_queries = variants;
-            }
-        }
 
         let effective_filter = if !user_doc_filter.is_empty() {
             user_doc_filter.to_vec()

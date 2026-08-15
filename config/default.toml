@@ -43,24 +43,24 @@ offline = false                # air-gapped kurulumda true yapin
 reranker_model = ""            # ornek: "bge-reranker-base"
 
 [retrieval]
-dense_top_k = 100
-sparse_top_k = 100
-rerank_candidates = 50
-final_top_k = 10
+dense_top_k = 50
+sparse_top_k = 50
+rerank_candidates = 20
+final_top_k = 5
 rrf_k = 60.0
 min_score = 0.0
-neighbor_window = 2
-context_token_budget = 4000
+neighbor_window = 1
+context_token_budget = 2000
 mmr_lambda = 0.5
 
 [agent]
 enabled = true
 max_steps = 1
-enable_query_decomposition = true
-enable_query_expansion = true
+enable_query_decomposition = false
+enable_query_expansion = false
 enable_self_correction = false
-enable_tool_doc_selection = true
-max_sub_queries = 3
+enable_tool_doc_selection = false
+max_sub_queries = 1
 
 [cache]
 enabled = true
@@ -76,7 +76,7 @@ model = "qwen2.5:0.5b-instruct"
 api_key = ""
 temperature = 0.1
 top_p = 0.9
-max_tokens = 512
+max_tokens = 256
 timeout_secs = 120
 extractive_fallback = true
 probe_on_start = true
