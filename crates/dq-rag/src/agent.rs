@@ -61,7 +61,6 @@ pub async fn run(
     cfg: &AppConfig,
     store: &Store,
     retriever: &Retriever,
-    output_guard: &OutputGuard,
     llm: &dyn LlmClient,
 ) -> Result<AgentOutcome> {
     let acfg = &cfg.agent;
@@ -191,7 +190,7 @@ pub async fn run(
             detail: serde_json::json!({"chars": raw_text.chars().count(), "model": if llm_available { llm.model() } else { "extractive".into() }}),
         });
 
-        let mut answer_text = raw_text;
+        let mut answer_text = raw_text.clone();
         let mut answer_kind = AnswerKind::Grounded;
         let mut groundedness = Groundedness {
             support_ratio: 1.0,
