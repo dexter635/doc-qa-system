@@ -69,13 +69,17 @@ pub fn answer(
         lines.push(format!("{} [{}]", sentence.trim(), marker));
     }
 
-    let prefix = match lang {
-        Lang::En => "Relevant excerpts found in the documents:",
-        _ => "Belgelerde bulunan ilgili bölümler:",
+    let prefix_en = "Relevant excerpts found in the documents:";
+    let prefix_tr = "Belgelerde bulunan ilgili bölümler:";
+
+    let text = if lines.is_empty() {
+        crate::prompts::refusal(lang).to_string()
+    } else {
+        format!("{prefix_en}\n\n- {}", lines.join("\n- "))
     };
 
     ExtractiveAnswer {
-        text: format!("{prefix}\n\n- {}", lines.join("\n- ")),
+        text,
         used_markers: used,
     }
 }

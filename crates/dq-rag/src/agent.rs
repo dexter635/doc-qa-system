@@ -213,8 +213,19 @@ pub async fn run(
             let is_raw_dump = trimmed.len() > 300 && (lower.starts_with("relevant excerpts") || lower.starts_with("kaynak metin") || lower.contains("</belgeler>") || (trimmed.contains("[1]") && trimmed.contains("[2]") && trimmed.len() > 800));
             if is_only_citation || is_not_found || is_raw_dump {
                 let extractive = fallback_text(&current_query, &context_chunks, lang, cfg);
-                if !extractive.trim().is_empty() && extractive.trim() != "Not in documents." && extractive.trim() != "Bu bilgi yüklenen belgelerde bulunmuyor." {
-                    answer_text = extractive;
+                let cleaned = extractive
+                    .trim()
+                    .trim_start_matches("Relevant excerpts found in the documents:")
+                    .trim_start_matches("Belgelerde bulunan ilgili bölümler:")
+                    .trim_start_matches('-')
+                    .trim();
+                let cleaned = cleaned
+                    .split('\n')
+                    .map(|l| l.trim_start_matches("- ").trim().to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if !cleaned.is_empty() && cleaned != "Not in documents." && cleaned != "Bu bilgi yüklenen belgelerde bulunmuyor." {
+                    answer_text = cleaned;
                     warnings.push("LLM cevabi yetersiz, cikarimsal yedek kullanildi.".into());
                 }
             }
