@@ -186,7 +186,7 @@ impl LlmClient for OpenAiCompatClient {
     }
 
     async fn healthy(&self) -> bool {
-        let mut req = self.http.get(format!("{}/models", self.base_url));
+        let mut req = self.http.get(format!("{}/v1/models", self.base_url));
         if !self.api_key.is_empty() {
             req = req.bearer_auth(&self.api_key);
         }
