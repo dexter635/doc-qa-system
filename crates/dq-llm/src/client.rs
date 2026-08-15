@@ -1,15 +1,22 @@
-//! Yerel LLM istemcisi (OpenAI uyumlu `/chat/completions`).
+//! Yerel LLM istemcileri.
 //!
-//! Yerel calisan llama.cpp server, Ollama ve vLLM ayni sozlesmeyi konustugu
-//! icin tek bir istemci uc motoru da destekler; boylece model degistirmek
-//! konfigurasyon degisikligine iner. Bulut saglayicisina hicbir cagri yapilmaz.
+//! Iki mod desteklenir:
+//! - `OpenAiCompatClient`: OpenAI uyumlu `/chat/completions` uclari icin
+//!   (Ollama, llama.cpp server, vLLM vb.).
+//! - `LocalLlmClient`: Rust `llm` crate'i ile yerel GGUF dosyalarindan
+//!   tek container, offline inference. Tek bir model yukler ve donusturur.
+//!
+//! Bulut saglayicisina hicbir cagri yapilmaz.
 
+use std::path::PathBuf;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use dq_core::config::LlmConfig;
 use dq_core::{DqError, Result};
 use serde::{Deserialize, Serialize};
+
+use super::chat_template::ChatTemplate;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ChatMessage {
@@ -276,6 +283,140 @@ impl OpenAiCompatClient {
             prompt_tokens: usage.prompt_tokens,
             completion_tokens: usage.completion_tokens,
         })
+    }
+}
+
+/// Hata mesaji, ag/gecici bir sorunu mu (yeniden denenebilir) yoksa kalici bir
+/// istemci hatasini mi (400 gibi - yeniden denemek sonucu degistirmez) yansitiyor.
+fn is_retryable(e: &DqError) -> bool {
+    let msg = e.to_string();
+    if msg.contains("ulasilamadi") {
+        return true; // baglanti/ag hatasi
+    }
+    // "LLM 5xx/429 dondu: ..." bicimindeki mesajlardan durum kodunu yakala.
+    for code in ["500", "502", "503", "504", "429"] {
+        if msg.contains(code) {
+            return true;
+        }
+    }
+    false
+}
+
+#[derive(Clone)]
+pub struct LocalLlmClient {
+    model_path: PathBuf,
+    model_name: String,
+}
+
+impl LocalLlmClient {
+    pub fn new(model_path: impl Into<PathBuf>, model_name: impl Into<String>) -> Self {
+        Self {
+            model_path: model_path.into(),
+            model_name: model_name.into(),
+        }
+    }
+}
+
+#[async_trait]
+impl LlmClient for LocalLlmClient {
+    fn model(&self) -> String {
+        self.model_name.clone()
+    }
+
+    async fn chat(&self, messages: Vec<ChatMessage>) -> Result<Completion> {
+        self.chat_with_temperature(messages, 0.0).await
+    }
+
+    async fn chat_with_temperature(
+        &self,
+        messages: Vec<ChatMessage>,
+        temperature: f32,
+    ) -> Result<Completion> {
+        let prompt = ChatTemplate::to_prompt(&messages);
+        let model_path = self.model_path.clone();
+        let model_name = self.model_name.clone();
+        let temp = temperature;
+
+        let result = tokio::task::spawn_blocking(move || -> Result<Completion> {
+            use llm::Model;
+            use llm::models::Llama;
+            use std::fs;
+
+            let params = llm::InferenceParameters::from(llm::ModelParameters {
+                temperature: temp,
+                top_p: 0.9,
+                top_k: 40,
+                ..Default::default()
+            });
+
+            let model = Llama::load_from_file(
+                std::path::Path::new(&model_path),
+                params,
+                llm::load::LoaderCallback::new(|_| {}),
+            )
+            .map_err(|e| DqError::Llm(format!("GGUF model yuklenemedi: {e}")))?;
+
+            let mut session = llm::InferenceSession::new(&model);
+            let mut generated = String::new();
+
+            let mut rng = rand::thread_rng();
+            let mut tokens = model
+                .tokenizer()
+                .encode(&prompt, llm::TokenEncodeSpecialTokensPolicy::Never)
+                .map_err(|e| DqError::Llm(format!("tokenize hatasi: {e}")))?;
+
+            for token in model.infer(
+                &mut session,
+                &model.special_symbols(),
+                tokens,
+                &llm::InferenceRequest::new(params, 256),
+                &mut rng,
+                |t| {
+                    if let Some(t) = t {
+                        generated.push_str(t);
+                    }
+                },
+            ) {
+                match token {
+                    Ok(llm::InferenceToken::Token(t)) => {
+                        tokens.push(t);
+                    }
+                    Ok(llm::InferenceToken::Eot) => break,
+                    Err(_) => break,
+                }
+            }
+
+            Ok(Completion {
+                text: generated,
+                model: model_name,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+            })
+        })
+        .await
+        .map_err(|e| DqError::Llm(format!("inference panik: {e}")))??;
+
+        Ok(result)
+    }
+
+    async fn healthy(&self) -> bool {
+        self.model_path.exists()
+    }
+}
+
+mod chat_template {
+    pub fn to_prompt(messages: &[super::ChatMessage]) -> String {
+        let mut prompt = String::new();
+        for m in messages {
+            match m.role.as_str() {
+                "system" => prompt.push_str(&format!("<|system|>\n{}\n", m.content)),
+                "user" => prompt.push_str(&format!("<|user|>\n{}\n", m.content)),
+                "assistant" => prompt.push_str(&format!("<|assistant|>\n{}\n", m.content)),
+                _ => prompt.push_str(&format!("<|user|>\n{}\n", m.content)),
+            }
+        }
+        prompt.push_str("<|assistant|>\n");
+        prompt
     }
 }
 

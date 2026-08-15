@@ -16,6 +16,8 @@ tokio.workspace = true
 async-trait.workspace = true
 reqwest.workspace = true
 uuid.workspace = true
+llm = "0.1"
+llama-gguf = "0.14"
 
 [dev-dependencies]
 tokio.workspace = true
