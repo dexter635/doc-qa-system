@@ -59,7 +59,6 @@ WORKDIR /app
 COPY --from=backend-builder /src/target/release/dq-server ./dq-server
 COPY --from=frontend-builder /src/crates/dq-web/dist ./static
 COPY --from=backend-builder /app/models/embeddings ./models/embeddings
-COPY --from=backend-builder /app/lib/libonnxruntime.so /usr/lib/x86_64-linux-gnu/libonnxruntime.so
 COPY config ./config
 
 RUN mkdir -p /app/data && chown -R dqapp:dqapp /app
