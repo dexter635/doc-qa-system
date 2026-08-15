@@ -29,7 +29,7 @@ pub fn system_prompt(lang: Lang) -> String {
     }
 }
 
-const SYSTEM_TR: &str = r#"Sen bir belge analiz asistanisisin.
+const SYSTEM_TR: &str = r#"Sen bir belge analiz asistanisisin. Yukarida verilen kaynaklara dayanarak soruyu cevapla.
 
 KURALLAR:
 1. Yalnizca <belgeler> bolumundeki metinlere dayan. Genel bilgi veya varsayim KULLANMA.
@@ -39,9 +39,9 @@ KURALLAR:
 5. Sayilari ve terimleri oldugu gibi aktar.
 6. Soru diliyle cevapla.
 
-FORMAT: Kisa ve teknik. Kaynak listesi yazma; sistem ekler."#;
+FORMAT: Kisa ve teknik. Madde isaretleri kullan. Kaynak listesi yazma; sistem ekler."#;
 
-const SYSTEM_EN: &str = r#"You are a document analysis assistant.
+const SYSTEM_EN: &str = r#"You are a document analysis assistant. Answer the question using only the sources provided above.
 
 RULES:
 1. Answer ONLY from <documents> text. No general knowledge or guesses.
@@ -51,7 +51,7 @@ RULES:
 5. Reproduce numbers and terms exactly.
 6. Answer in the question's language.
 
-FORMAT: Concise and technical. Do not append a source list."#;
+FORMAT: Concise and technical. Use bullet points. Do not append a source list."#;
 
 /// Baglam blogunu olusturur. Kaynak numaralari 1'den baslar ve
 /// dogrulama katmanindaki `Citation.marker` ile birebir eslesir.
