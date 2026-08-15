@@ -63,7 +63,7 @@ enable_tool_doc_selection = false
 max_sub_queries = 1
 
 [llm]
-base_url = "http://llama-cpp:8081/v1"
+base_url = "http://ollama:11434"
 model = "qwen2.5-0.5b-instruct"
 api_key = ""
 temperature = 0.0
