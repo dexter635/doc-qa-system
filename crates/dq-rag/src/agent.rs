@@ -210,7 +210,7 @@ pub async fn run(
             let lower = trimmed.to_lowercase();
             let is_only_citation = trimmed.len() <= 6 && trimmed.starts_with('[') && trimmed.ends_with(']');
             let is_not_found = trimmed == "Not in documents." || trimmed == "Bu bilgi yüklenen belgelerde bulunmuyor.";
-            let is_raw_dump = trimmed.len() > 300 && (lower.starts_with("relevant excerpts") || lower.starts_with("kaynak metin") || lower.contains("</belgeler>") || (trimmed.contains("[1]") && trimmed.contains("[2]") && trimmed.len() > 800));
+            let is_raw_dump = trimmed.len() > 300 && (lower.starts_with("relevant excerpts") || lower.starts_with("kaynak metin") || lower.contains("</belgeler>") || (trimmed.contains("[1]") && trimmed.contains("[2]") || trimmed.contains("Şekil ") || trimmed.contains("Figure ") || trimmed.contains("s. ") || trimmed.contains("page ")));
             if is_only_citation || is_not_found || is_raw_dump {
                 let extractive = fallback_text(&current_query, &context_chunks, lang, cfg);
                 let cleaned = extractive
@@ -545,3 +545,5 @@ mod tests {
         assert_eq!(outcome.kind, AnswerKind::Refused);
     }
 }
+
+
