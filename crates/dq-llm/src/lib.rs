@@ -5,4 +5,4 @@ pub mod extractive;
 pub mod json;
 pub mod prompts;
 
-pub use client::{ChatMessage, Completion, LlmClient, LocalLlmClient, NullLlmClient, OpenAiCompatClient};
+pub use client::{ChatMessage, Completion, LlmClient, NullLlmClient, OpenAiCompatClient};

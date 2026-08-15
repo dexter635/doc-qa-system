@@ -43,11 +43,6 @@ RUN mkdir -p /tmp/embed-prefetch/src /app/models/embeddings && \
     cargo run --release && \
     rm -rf /tmp/embed-prefetch
 
-# Collect ONNX Runtime shared library if dynamically linked
-RUN mkdir -p /app/models/llm && \
-    curl -L -o /app/models/llm/tinyllama.gguf \
-      "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q2_K.gguf"
-
 # --- Aşama 3: calisma zamani imaji -----------------------------------------
 FROM debian:trixie-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -60,7 +55,6 @@ WORKDIR /app
 COPY --from=backend-builder /src/target/release/dq-server ./dq-server
 COPY --from=frontend-builder /src/crates/dq-web/dist ./static
 COPY --from=backend-builder /app/models/embeddings ./models/embeddings
-COPY --from=backend-builder /app/models/llm ./models/llm
 COPY config ./config
 
 RUN mkdir -p /app/data && chown -R dqapp:dqapp /app

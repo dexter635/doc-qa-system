@@ -160,8 +160,6 @@ pub struct LlmConfig {
     pub extractive_fallback: bool,
     /// Saglik kontrolu icin baslangicta yoklama yapilsin mi?
     pub probe_on_start: bool,
-    /// Yerel GGUF model yolu. Bos ise base_url kullanilir.
-    pub model_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -375,7 +373,6 @@ impl Default for LlmConfig {
             timeout_secs: 120,
             extractive_fallback: true,
             probe_on_start: true,
-            model_path: String::new(),
         }
     }
 }

@@ -13,7 +13,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use dq_core::config::AppConfig;
 use dq_index::{embed, Retriever, Store};
-use dq_llm::client::{LlmClient, LocalLlmClient, NullLlmClient, OpenAiCompatClient};
+use dq_llm::client::{LlmClient, NullLlmClient, OpenAiCompatClient};
 use dq_rag::Pipeline;
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -62,14 +62,7 @@ async fn main() -> anyhow::Result<()> {
     retriever.rebuild(&store)?;
     tracing::info!(chunks = retriever.len(), "indeks hazir");
 
-    let llm: Arc<dyn LlmClient> = if !cfg.llm.model_path.is_empty() {
-        let path = if std::path::Path::new(&cfg.llm.model_path).is_absolute() {
-            std::path::PathBuf::from(&cfg.llm.model_path)
-        } else {
-            cfg.storage.model_dir.join(&cfg.llm.model_path)
-        };
-        Arc::new(LocalLlmClient::new(path, &cfg.llm.model))
-    } else if cfg.llm.base_url.trim().is_empty() || !cfg.llm.probe_on_start {
+    let llm: Arc<dyn LlmClient> = if cfg.llm.base_url.trim().is_empty() || !cfg.llm.probe_on_start {
         Arc::new(NullLlmClient::new())
     } else {
         Arc::new(OpenAiCompatClient::new(&cfg.llm)?)
