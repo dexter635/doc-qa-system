@@ -234,7 +234,7 @@ impl OpenAiCompatClient {
 
         let mut req = self
             .http
-            .post(format!("{}/chat/completions", self.base_url))
+            .post(format!("{}/v1/chat/completions", self.base_url))
             .json(&body);
         if !self.api_key.is_empty() {
             req = req.bearer_auth(&self.api_key);
