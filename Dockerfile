@@ -39,7 +39,7 @@ RUN cargo build --release -p dq-server
 RUN mkdir -p /tmp/embed-prefetch/src /app/models/embeddings && \
     cd /tmp/embed-prefetch && \
     printf '%s\n' '[package]' 'name = "embed-prefetch"' 'version = "0.1.0"' 'edition = "2021"' '' '[dependencies]' 'fastembed = "5"' > Cargo.toml && \
-    printf '%s\n' 'use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};' 'fn main() {' '    let _ = TextEmbedding::try_new(' '        TextInitOptions::new(EmbeddingModel::AllMiniLML6V2)' '            .with_cache_dir("/app/models/embeddings")' '    );' '}' > src/main.rs && \
+    printf '%s\n' 'use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};' 'fn main() {' '    let _ = TextEmbedding::try_new(' '        TextInitOptions::new(EmbeddingModel::AllMiniLML6V2)' '            .with_cache_dir("/app/models/embeddings".into())' '    );' '}' > src/main.rs && \
     cargo run --release && \
     rm -rf /tmp/embed-prefetch
 
