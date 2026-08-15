@@ -747,6 +747,7 @@ mod tests {
 
         let mut cfg = base_cfg();
         cfg.agent.enable_query_decomposition = false; // planlama disi, sadece self-correction test edilsin
+        cfg.agent.enable_self_correction = true; // self-correction aktif
         cfg.guardrails.min_top_score = 0.0; // yalnizca destek oranina odaklan
         let guard = OutputGuard::new(cfg.guardrails.clone());
 
