@@ -29,9 +29,9 @@ pub fn system_prompt(lang: Lang) -> String {
     }
 }
 
-const SYSTEM_TR: &str = r#"Yukaridaki kaynaklara dayanarak soruyu cevapla. Yalnizca kaynaklarda verilen bilgileri kullan. Bilgi yoksa "Bu bilgi yuklenen belgelerde bulunmuyor." yaz. Her bilgi iceren cumleyi [1], [2] seklinde kaynak numarasyla bitir. Cevabi kisa ve dogru tut."#;
+const SYSTEM_TR: &str = r#"Yukaridaki kaynaklara dayanarak soruyu cevapla. Yalnizca kaynaklarda verilen bilgileri kullan. Bilgi yoksa "Bu bilgi yuklenen belgelerde bulunmuyor." yaz. Her bilgi iceren cumleyi [1], [2] seklinde kaynak numarasyla bitir. Cevabi kisa tut."#;
 
-const SYSTEM_EN: &str = r#"Answer the question using only the provided sources. If information is not in the sources, write "This information is not present in the uploaded documents." End every factual sentence with source numbers like [1], [2]. Keep the answer concise and accurate."#;
+const SYSTEM_EN: &str = r#"Answer using only the provided sources. Cite facts with [n]. If not found, say "Not in documents." Be concise."#;
 
 /// Baglam blogunu olusturur. Kaynak numaralari 1'den baslar ve
 /// dogrulama katmanindaki `Citation.marker` ile birebir eslesir.
@@ -78,8 +78,8 @@ fn sanitize_context(text: &str) -> String {
 
 pub fn user_prompt(question: &str, context: &str, lang: Lang) -> String {
     let instruction = match lang {
-        Lang::En => "Answer the question using only the sources above. Add [n] citations.",
-        _ => "Yukarıdaki kaynaklara dayanarak soruyu cevapla. [n] biçiminde kaynak numarası ekle.",
+        Lang::En => "Answer from sources above. Cite with [n].",
+        _ => "Yukarıdaki kaynaklardan cevap ver. [n] ile atıf ekle.",
     };
     format!("{context}\n\nSoru: {question}\n\n{instruction}")
 }
