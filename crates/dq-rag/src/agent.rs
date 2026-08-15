@@ -199,7 +199,7 @@ pub async fn run(
             top_score: merged.first().map(|s| s.score).unwrap_or(0.0),
             passed: true,
         };
-        let mut warnings = Vec::new();
+        let mut warnings: Vec<String> = Vec::new();
 
         if !llm_available || raw_text.trim().is_empty() {
             answer_text = prompts::refusal(lang).to_string();
@@ -208,7 +208,24 @@ pub async fn run(
             warnings.push("LLM cevabi bos veya hatali.".into());
         }
 
-    }
+        return Ok(AgentOutcome {
+            text: answer_text,
+            kind: answer_kind,
+            citations: context_chunks.iter().map(|sc| Citation {
+                marker: 0,
+                doc_id: sc.chunk.doc_id,
+                doc_filename: sc.doc_filename.clone(),
+                chunk_id: sc.chunk.id,
+                page_from: sc.chunk.page_from,
+                page_to: sc.chunk.page_to,
+                snippet: sc.chunk.text.clone(),
+                score: sc.score,
+            }).collect(),
+            groundedness,
+            classification: Classification::Unclassified,
+            warnings,
+            trace,
+        });
 
     // Dongu, ilk yinelemede hic sonuc bulamadan kirildiysa (merged.is_empty()) buraya duser.
     let lang_for_refusal = lang;
