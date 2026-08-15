@@ -272,7 +272,6 @@ impl Pipeline {
             &self.cfg,
             &self.store,
             &self.retriever,
-            &self.output_guard,
             self.llm.as_ref(),
         )
         .await?;
