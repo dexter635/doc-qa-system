@@ -50,7 +50,7 @@ final_top_k = 2
 rrf_k = 60.0
 min_score = -0.1
 neighbor_window = 0
-context_token_budget = 600
+context_token_budget = 1200
 mmr_lambda = 0.2
 
 [agent]
@@ -64,11 +64,11 @@ max_sub_queries = 1
 
 [llm]
 base_url = "http://ollama:11434"
-model = "qwen2.5:0.5b"
+model = "qwen2.5:1.5b"
 api_key = ""
 temperature = 0.0
 top_p = 0.7
-max_tokens = 128
+max_tokens = 256
 timeout_secs = 30
 extractive_fallback = false
 probe_on_start = true

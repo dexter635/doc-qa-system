@@ -47,8 +47,8 @@ RUN mkdir -p /tmp/embed-prefetch/src /app/models/embeddings && \
 FROM alpine:latest AS llm-model
 RUN apk add --no-cache curl
 RUN mkdir -p /models && \
-    curl -L --retry 3 --retry-delay 5 -o /models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
-    "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+    curl -L --retry 3 --retry-delay 5 -o /models/qwen2.5-1.5b-instruct-q4_k_m.gguf \
+    "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
 
 # --- Aşama 4: calisma zamani imaji -----------------------------------------
 FROM debian:trixie-slim AS runtime

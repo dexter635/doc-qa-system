@@ -4,7 +4,7 @@ services:
     container_name: dqa-ollama
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
-    command: ["ollama serve & sleep 3 && ollama pull qwen2.5:0.5b && wait"]
+    command: ["ollama serve & sleep 3 && ollama pull qwen2.5:1.5b && wait"]
     environment:
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_MAX_LOADED_MODELS=1
@@ -31,7 +31,7 @@ services:
       DQ_EMBEDDING_OFFLINE: "true"
       DQ_OCR_ENGINE: "tesseract"
       DQ_LLM_BASE_URL: "http://ollama:11434"
-      DQ_LLM_MODEL: "qwen2.5:0.5b"
+      DQ_LLM_MODEL: "qwen2.5:1.5b"
       DQ_LLM_PROBE_ON_START: "true"
       DQ_LLM_EXTRACTIVE_FALLBACK: "true"
       RUST_LOG: "info"
