@@ -35,15 +35,7 @@ COPY crates/dq-server ./crates/dq-server
 # derlenebilir bir stub birakiyoruz ki workspace cozumlemesi bozulmasin.
 RUN cargo build --release -p dq-server
 
-# ONNX gomme modelini Docker build sirasinda indir
-RUN mkdir -p /app/models/embeddings && \
-    pip3 install --no-cache-dir --break-system-packages huggingface_hub && \
-    python3 -c "from huggingface_hub import snapshot_download; snapshot_download('Qdrant/all-MiniLM-L6-v2-onnx', local_dir='/app/models/embeddings/models--Qdrant--all-MiniLM-L6-v2-onnx')" && \
-    rm -rf /root/.cache/huggingface
-
 # --- Aşama 3: calisma zamani imaji -----------------------------------------
-# Calisma zamani da build'in urettigi binary'nin glibc'ini karsilayabilmek
-# icin trixie olmali (gard: derliyici ve calistirici ayni libc surumu).
 FROM debian:trixie-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng \
@@ -54,7 +46,6 @@ WORKDIR /app
 COPY --from=backend-builder /src/target/release/dq-server ./dq-server
 COPY --from=frontend-builder /src/crates/dq-web/dist ./static
 COPY config ./config
-COPY --from=backend-builder /app/models/embeddings /app/models/embeddings
 
 RUN mkdir -p /app/data /app/models && chown -R dqapp:dqapp /app
 USER dqapp

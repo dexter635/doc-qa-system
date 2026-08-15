@@ -33,28 +33,28 @@ min_line_confidence = 0.35
 preprocess = true
 
 [embedding]
-model = "all-minilm-l6-v2"
+model = "hash-ngram-384"
 dim = 384
-query_prefix = "query: "
-passage_prefix = "passage: "
-batch_size = 16
+query_prefix = ""
+passage_prefix = ""
+batch_size = 64
 cache_dir = "models/embeddings"
-offline = false                # air-gapped kurulumda true yapin
-reranker_model = ""            # ornek: "bge-reranker-base"
+offline = true
+reranker_model = ""
 
 [retrieval]
-dense_top_k = 50
-sparse_top_k = 50
-rerank_candidates = 20
+dense_top_k = 20
+sparse_top_k = 30
+rerank_candidates = 0
 final_top_k = 5
 rrf_k = 60.0
 min_score = 0.0
-neighbor_window = 1
-context_token_budget = 2000
+neighbor_window = 0
+context_token_budget = 1500
 mmr_lambda = 0.5
 
 [agent]
-enabled = true
+enabled = false
 max_steps = 1
 enable_query_decomposition = false
 enable_query_expansion = false
@@ -62,24 +62,16 @@ enable_self_correction = false
 enable_tool_doc_selection = false
 max_sub_queries = 1
 
-[cache]
-enabled = true
-memory_capacity = 512
-ttl_secs = 3600
-semantic_enabled = true
-semantic_threshold = 0.96
-embedding_cache_enabled = true
-
 [llm]
-base_url = "http://127.0.0.1:11434/v1"
-model = "qwen2.5:0.5b-instruct"
+base_url = ""
+model = ""
 api_key = ""
-temperature = 0.1
-top_p = 0.9
-max_tokens = 256
-timeout_secs = 120
+temperature = 0.0
+top_p = 0.0
+max_tokens = 0
+timeout_secs = 0
 extractive_fallback = true
-probe_on_start = true
+probe_on_start = false
 
 [guardrails]
 max_query_chars = 1000

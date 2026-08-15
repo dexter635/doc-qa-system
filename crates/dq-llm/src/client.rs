@@ -56,6 +56,41 @@ pub trait LlmClient: Send + Sync {
     async fn healthy(&self) -> bool;
 }
 
+/// LLM olmadigi durumlarda kullanilan "null nesne" istemci.
+/// Sistemin dusmesini onlemek icin tum istekleri uygun sekilde reddeder
+/// ve cikarimsal (extractive) yedek moduna gecmesini saglar.
+#[derive(Clone)]
+pub struct NullLlmClient;
+
+#[async_trait]
+impl LlmClient for NullLlmClient {
+    fn model(&self) -> String {
+        "none".into()
+    }
+
+    async fn chat(&self, _messages: Vec<ChatMessage>) -> Result<Completion> {
+        Err(DqError::Llm("LLM devre disi; cikarimsal yedek modu aktif".into()))
+    }
+
+    async fn chat_with_temperature(
+        &self,
+        _messages: Vec<ChatMessage>,
+        _temperature: f32,
+    ) -> Result<Completion> {
+        Err(DqError::Llm("LLM devre disi; cikarimsal yedek modu aktif".into()))
+    }
+
+    async fn healthy(&self) -> bool {
+        false
+    }
+}
+
+impl NullLlmClient {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 /// Gecici (transient) hatalarda denenecek en fazla deneme sayisi (ilk deneme dahil).
 const MAX_ATTEMPTS: u32 = 3;
 /// Denemeler arasi baslangic bekleme suresi; her denemede ikiye katlanir.
