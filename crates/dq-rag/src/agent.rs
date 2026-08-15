@@ -29,7 +29,6 @@ use dq_core::{
 use dq_guard::OutputGuard;
 use dq_index::{Retriever, SearchOptions, Store};
 use dq_llm::client::{ChatMessage, LlmClient};
-use dq_llm::json::extract_json_object;
 use dq_llm::{extractive, prompts};
 use uuid::Uuid;
 
@@ -149,7 +148,6 @@ pub async fn run(
         });
 
         if merged.is_empty() {
-            last = Some((current_query.clone(), merged));
             break;
         }
 
