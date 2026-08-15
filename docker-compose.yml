@@ -3,6 +3,7 @@ services:
     image: ollama/ollama:latest
     container_name: dqa-ollama
     restart: unless-stopped
+    command: ["sh", "-c", "ollama serve & sleep 3 && ollama pull tinyllama:latest && wait"]
     environment:
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_MAX_LOADED_MODELS=1
@@ -17,7 +18,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 120s
 
   dq-server:
     build:
