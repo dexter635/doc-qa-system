@@ -4,7 +4,7 @@ services:
     container_name: dqa-ollama
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
-    command: ["ollama serve & sleep 3 && ollama pull qwen2.5:0.5b && wait"]
+    command: ["ollama serve & sleep 3 && ollama pull qwen2.5:1.5b && wait"]
     environment:
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_MAX_LOADED_MODELS=1

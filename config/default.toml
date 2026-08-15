@@ -64,7 +64,7 @@ max_sub_queries = 1
 
 [llm]
 base_url = "http://ollama:11434"
-model = "qwen2.5-0.5b-instruct"
+model = "qwen2.5:1.5b"
 api_key = ""
 temperature = 0.0
 top_p = 0.8
