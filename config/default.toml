@@ -63,15 +63,15 @@ enable_tool_doc_selection = false
 max_sub_queries = 1
 
 [llm]
-base_url = ""
-model = ""
+base_url = "http://ollama:11434"
+model = "tinyllama:latest"
 api_key = ""
 temperature = 0.0
-top_p = 0.0
-max_tokens = 0
-timeout_secs = 0
+top_p = 0.9
+max_tokens = 256
+timeout_secs = 10
 extractive_fallback = true
-probe_on_start = false
+probe_on_start = true
 
 [guardrails]
 max_query_chars = 1000
