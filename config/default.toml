@@ -43,14 +43,14 @@ offline = true
 reranker_model = ""
 
 [retrieval]
-dense_top_k = 15
-sparse_top_k = 20
-rerank_candidates = 0
-final_top_k = 4
+dense_top_k = 20
+sparse_top_k = 25
+rerank_candidates = 10
+final_top_k = 6
 rrf_k = 60.0
 min_score = 0.0
 neighbor_window = 0
-context_token_budget = 1200
+context_token_budget = 2000
 mmr_lambda = 0.3
 
 [agent]
@@ -67,8 +67,8 @@ base_url = "http://ollama:11434"
 model = "qwen2.5-0.5b-instruct"
 api_key = ""
 temperature = 0.0
-top_p = 0.9
-max_tokens = 256
+top_p = 0.8
+max_tokens = 512
 timeout_secs = 30
 extractive_fallback = false
 probe_on_start = true
@@ -79,8 +79,8 @@ block_prompt_injection = true
 injection_threshold = 0.5
 block_pii_in_query = false
 require_citations = true
-min_support_ratio = 0.3
-min_top_score = 0.15
+min_support_ratio = 0.4
+min_top_score = 0.25
 redact_pii_in_answer = true
 stamp_classification = true
 enforce_clearance = true
