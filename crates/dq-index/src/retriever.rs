@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use dq_core::config::{EmbeddingConfig, RetrievalConfig};
-use dq_core::{Chunk, ChunkType, Classification, DqError, Lang, Result, ScoredChunk};
+use dq_core::{semantic, Chunk, ChunkType, Classification, DqError, Lang, Result, ScoredChunk};
 use parking_lot::RwLock;
 use uuid::Uuid;
 
@@ -151,8 +151,9 @@ impl Retriever {
         };
 
         let qvec = self.embedder.embed_query(query)?;
+        let expanded = semantic::expand_query(query);
         let dense_hits = inner.dense.search(&qvec, self.cfg.dense_top_k, &allow);
-        let sparse_hits = inner.sparse.search(query, self.cfg.sparse_top_k, &allow);
+        let sparse_hits = inner.sparse.search_expanded(query, self.cfg.sparse_top_k, &allow, &expanded);
 
         let fused = reciprocal_rank_fusion(&dense_hits, &sparse_hits, self.cfg.rrf_k);
         if fused.is_empty() {

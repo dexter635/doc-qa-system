@@ -71,18 +71,38 @@ impl Bm25Index {
         k: usize,
         allow: &dyn Fn(usize) -> bool,
     ) -> Vec<(usize, f32)> {
+        self.search_expanded(query, k, allow, &[])
+    }
+
+    /// Sorgu terimlerini es anlamli kelimelerle genisleterek ara.
+    pub fn search_expanded(
+        &self,
+        query: &str,
+        k: usize,
+        allow: &dyn Fn(usize) -> bool,
+        expanded: &[String],
+    ) -> Vec<(usize, f32)> {
         if self.doc_len.is_empty() || k == 0 {
             return Vec::new();
         }
         let n = self.doc_len.len() as f32;
         let mut scores: HashMap<usize, f32> = HashMap::new();
 
+        let mut all_terms = Vec::new();
         for term in query_terms(query) {
+            all_terms.push(term);
+        }
+        for term in expanded {
+            if !all_terms.contains(term) {
+                all_terms.push(term.clone());
+            }
+        }
+
+        for term in all_terms {
             let Some(posting) = self.postings.get(&term) else {
                 continue;
             };
             let df = posting.len() as f32;
-            // Robertson/Sparck-Jones IDF; negatif olmamasi icin +1.0 ile kaydirilir.
             let idf = (((n - df + 0.5) / (df + 0.5)) + 1.0).ln();
             for (row, tf) in posting {
                 if !allow(*row) {

@@ -6,6 +6,7 @@
 pub mod config;
 pub mod error;
 pub mod ids;
+pub mod semantic;
 pub mod telemetry;
 pub mod text;
 pub mod types;
