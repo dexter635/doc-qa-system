@@ -64,7 +64,7 @@ max_sub_queries = 1
 
 [llm]
 base_url = "http://ollama:11434"
-model = "tinyllama:latest"
+model = "tinyllama"
 api_key = ""
 temperature = 0.0
 top_p = 0.9

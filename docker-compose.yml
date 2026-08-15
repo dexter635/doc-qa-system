@@ -4,7 +4,7 @@ services:
     container_name: dqa-ollama
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
-    command: ["ollama serve & sleep 3 && ollama pull tinyllama:latest && wait"]
+    command: ["ollama serve & sleep 3 && ollama pull tinyllama && wait"]
     environment:
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_MAX_LOADED_MODELS=1
@@ -26,9 +26,10 @@ services:
       DQ_JWT_SECRET: "${DQA_JWT_SECRET}"
       DQ_DB_PATH: "/app/data/docqa.sqlite3"
       DQ_MODEL_DIR: "/app/models"
+      DQ_EMBEDDING_OFFLINE: "true"
       DQ_OCR_ENGINE: "tesseract"
       DQ_LLM_BASE_URL: "http://ollama:11434"
-      DQ_LLM_MODEL: "tinyllama:latest"
+      DQ_LLM_MODEL: "tinyllama"
       DQ_LLM_PROBE_ON_START: "true"
       DQ_LLM_EXTRACTIVE_FALLBACK: "true"
       RUST_LOG: "info"
