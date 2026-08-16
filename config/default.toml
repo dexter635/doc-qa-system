@@ -53,14 +53,6 @@ neighbor_window = 0
 context_token_budget = 1200
 mmr_lambda = 0.2
 
-[cache]
-enabled = true
-memory_capacity = 512
-ttl_secs = 3600
-semantic_enabled = false
-semantic_threshold = 0.96
-embedding_cache_enabled = true
-
 [agent]
 enabled = false
 max_steps = 1
@@ -78,7 +70,7 @@ temperature = 0.0
 top_p = 0.7
 max_tokens = 256
 timeout_secs = 30
-extractive_fallback = true
+extractive_fallback = false
 probe_on_start = true
 
 [guardrails]

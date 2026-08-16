@@ -207,27 +207,16 @@ pub async fn run(
             warnings.push("LLM cevabi bos veya hatali.".into());
         } else if cfg.llm.extractive_fallback && !context_chunks.is_empty() {
             let trimmed = raw_text.trim();
-            let lower = trimmed.to_lowercase();
             let is_only_citation = trimmed.len() <= 6 && trimmed.starts_with('[') && trimmed.ends_with(']');
             let is_not_found = trimmed == "Not in documents." || trimmed == "Bu bilgi yüklenen belgelerde bulunmuyor.";
-            let is_raw_dump = trimmed.len() > 300 && (lower.starts_with("relevant excerpts") || lower.starts_with("kaynak metin") || lower.contains("</belgeler>") || (trimmed.contains("[1]") && trimmed.contains("[2]") || trimmed.contains("Şekil ") || trimmed.contains("Figure ") || trimmed.contains("s. ") || trimmed.contains("page ")));
-            if is_only_citation || is_not_found || is_raw_dump {
+            if is_only_citation || is_not_found {
                 let extractive = fallback_text(&current_query, &context_chunks, lang, cfg);
-                let cleaned = extractive
-                    .trim()
-                    .trim_start_matches("Relevant excerpts found in the documents:")
-                    .trim_start_matches("Belgelerde bulunan ilgili bölümler:")
-                    .trim_start_matches('-')
-                    .trim();
-                let cleaned = cleaned
-                    .split('\n')
-                    .map(|l| l.trim_start_matches("- ").trim().to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                if !cleaned.is_empty() && cleaned != "Not in documents." && cleaned != "Bu bilgi yüklenen belgelerde bulunmuyor." {
-                    answer_text = cleaned;
+                if !extractive.trim().is_empty() && extractive.trim() != "Not in documents." && extractive.trim() != "Bu bilgi yüklenen belgelerde bulunmuyor." {
+                    answer_text = extractive;
                     warnings.push("LLM cevabi yetersiz, cikarimsal yedek kullanildi.".into());
                 }
+            }
+        }
             }
         }
 

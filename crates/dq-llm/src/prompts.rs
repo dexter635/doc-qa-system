@@ -38,8 +38,7 @@ KURALLAR:
    - Bilgi bulunamazsa: "Bu bilgi yüklenen belgelerde bulunmuyor." yaz
 3. Cevabı kısa ve öz tut (en fazla 2-3 cümle).
 4. Her cümleyi [1], [2] şeklinde kaynak numarasıyla bitir.
-5. Emin olmadığın bilgileri UYDURMA.
-6. ASLA kaynak metnini olduğu gibi kopyalama/yapıştırma YAPMA. Özetle ve cevapla."#;
+5. Emin olmadığın bilgileri UYDURMA."#;
 
 const SYSTEM_EN: &str = r#"You are a document analysis assistant. Extract information from the sources above and answer the question.
 
@@ -50,8 +49,7 @@ RULES:
    - If not found: write "Not in documents."
 3. Keep answer short and concise (max 2-3 sentences).
 4. End every sentence with [n] citation.
-5. Do NOT make up information you are not sure about.
-6. NEVER copy/paste raw source text. Synthesize and answer."#;
+5. Do NOT make up information you are not sure about."#;
 
 /// Baglam blogunu olusturur. Kaynak numaralari 1'den baslar ve
 /// dogrulama katmanindaki `Citation.marker` ile birebir eslesir.
